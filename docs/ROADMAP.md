@@ -1,0 +1,26 @@
+# PROF Roadmap
+
+## Phase 1 — Developer Preview (this release, v0.1)
+- [x] Core SDK, Gateway, sample policy, CLI, MCP adapter
+- [x] 3 demos (normal allow / tamper deny / replay deny)
+- [x] Basic threat tests + ledger verification
+
+## Phase 2 — Public Beta
+- [ ] EHCT adapter (privacy-preserving budget proofs), approval UI, audit console
+- [ ] Multi-agent scoping, quorum approvals, SSO (OIDC)
+- [ ] Load/fault tests, external pilot, published benchmark with env disclosure
+
+## Phase 3 — Enterprise
+- [ ] KMS/HSM + key rotation, Postgres/etcd linearizable nonce store, HA gateway
+- [ ] Policy versioning, transparency log / witness cosigning
+- [ ] External security assessment, ops docs, SLA
+
+## Phase 4 — Ecosystem
+- [ ] LangChain/LlamaIndex/CrewAI adapters, TS/Python SDK parity, partner marketplace
+- [ ] Compatibility matrix + community metrics (installs, active projects, protected executions)
+
+## Open-core model
+
+- **Community (this repo, MIT):** SDK, gateway, MCP adapter, ledger, examples.
+- **Team Cloud (roadmap):** central policy, approval workflows, log search.
+- **Enterprise (roadmap):** on-prem, IAM, KMS/HSM, HA, SLA.

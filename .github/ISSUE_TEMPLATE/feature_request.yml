@@ -1,0 +1,7 @@
+name: Feature request
+description: Propose an improvement
+body:
+  - type: textarea
+    attributes: {label: "Problem", description: "What execution-control problem is unsolved?"}
+  - type: textarea
+    attributes: {label: "Proposal", description: "API / threat-model impact"}

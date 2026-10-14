@@ -1,0 +1,9 @@
+name: Bug report
+description: Report a reproducible problem
+body:
+  - type: textarea
+    attributes: {label: "What happened?", description: "Expected vs actual"}
+  - type: textarea
+    attributes: {label: "Reproduction", description: "Commands, policy, permit (redact keys)"}
+  - type: input
+    attributes: {label: "Version (`prof version`)"}

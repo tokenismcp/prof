@@ -1,0 +1,13 @@
+policy_id: default@v1
+default_tier: high
+rules:
+  - {action: "tool.call", resource: "tool:*.read*", tier: low}
+  - {action: "tool.call", resource: "tool:crm.lookup", tier: low}
+  - {action: "tool.call", resource: "tool:*", tier: medium}
+  - {action: "file.read", resource: "file:**", tier: low}
+  - {action: "file.write", resource: "file:/tmp/**", tier: medium}
+  - {action: "file.write", resource: "file:**", tier: high, require_human: true}
+  - {action: "message.send", resource: "channel:**", tier: medium}
+  - {action: "payment.*", resource: "account:**", tier: high, require_human: true, max_amount: 1000000}
+  - {action: "db.*", resource: "db:**", tier: high, require_human: true}
+  - {action: "system.*", resource: "*", tier: high, require_human: true}
