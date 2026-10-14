@@ -1,0 +1,5 @@
+# Edge reverse-proxy for PROF (used with compose --profile edge).
+# Set {$PROF_DOMAIN} in the environment before `docker compose up`.
+{$PROF_DOMAIN} {
+	reverse_proxy gateway:8091
+}

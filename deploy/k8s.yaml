@@ -1,0 +1,73 @@
+# PROF on Kubernetes (single-replica Developer Preview; HA gateway is Beta roadmap).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prof
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: prof-approver
+  namespace: prof
+type: Opaque
+stringData:
+  # fill via: kubectl -n prof create secret generic prof-approver --from-literal=priv='...' --dry-run=client -o yaml
+  priv: "CHANGE_ME"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prof-data
+  namespace: prof
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prof-gateway
+  namespace: prof
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: prof-gateway }
+  template:
+    metadata:
+      labels: { app: prof-gateway }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: gateway
+          image: prof-gateway:0.1.0
+          ports: [{ containerPort: 8091 }]
+          env:
+            - { name: PROF_DEMO, value: "0" }
+            - { name: PROF_SUBJECT, value: "user:approver" }
+            - name: PROF_APPROVER_PRIV
+              valueFrom: { secretKeyRef: { name: prof-approver, key: priv } }
+            - { name: PROF_LEDGER, value: /data/ledger.json }
+            - { name: PROF_NONCES, value: /data/nonces.json }
+          volumeMounts: [{ name: data, mountPath: /data }]
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: "1", memory: 512Mi }
+          livenessProbe: { httpGet: { path: /healthz, port: 8091 }, initialDelaySeconds: 10, periodSeconds: 30 }
+          readinessProbe: { httpGet: { path: /readyz, port: 8091 }, initialDelaySeconds: 5, periodSeconds: 10 }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: prof-data }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prof-gateway
+  namespace: prof
+spec:
+  selector: { app: prof-gateway }
+  ports: [{ port: 8091, targetPort: 8091 }]

@@ -1,7 +1,46 @@
 services:
   gateway:
     build: .
+    image: prof-gateway:0.1.0
     ports:
-      - "8091:8091"
+      - "127.0.0.1:8091:8091"
+    env_file:
+      - ./configs/prof.env
     environment:
-      PROF_DEMO: "1"
+      PROF_LEDGER: /data/ledger.json
+      PROF_NONCES: /data/nonces.json
+    volumes:
+      - prof-data:/data
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8091/healthz', timeout=4)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # Optional TLS edge: `docker compose --profile edge up` after setting PROF_DOMAIN.
+  # Terminates public HTTPS and forwards to the gateway over the compose network.
+  edge:
+    image: caddy:2-alpine
+    profiles: ["edge"]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - gateway
+    restart: unless-stopped
+
+volumes:
+  prof-data:
+  caddy-data:
+  caddy-config:

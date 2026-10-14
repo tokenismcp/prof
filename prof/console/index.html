@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PROF Console — Think Freely. Act With Proof.</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header class="topbar">
+  <img src="logo.png" alt="PROF" class="logo" />
+  <div class="titles">
+    <h1>PROF Console <span class="tag">Developer Preview</span></h1>
+    <p class="slogan">Think Freely. Act With Proof.</p>
+  </div>
+  <div class="health" id="health"><span class="dot gray"></span> connecting…</div>
+</header>
+
+<main>
+  <section class="cards">
+    <div class="card"><div class="k">Version</div><div class="v" id="c-version">–</div></div>
+    <div class="card"><div class="k">Policy</div><div class="v" id="c-policy">–</div></div>
+    <div class="card green"><div class="k">Allowed</div><div class="v" id="c-allow">–</div></div>
+    <div class="card red"><div class="k">Denied</div><div class="v" id="c-deny">–</div></div>
+    <div class="card"><div class="k">Ledger entries</div><div class="v" id="c-ledger">–</div></div>
+    <div class="card"><div class="k">Chain</div><div class="v small" id="c-chain">–</div></div>
+  </section>
+
+  <section class="grid">
+    <div class="panel">
+      <h2>1 · Approve <span class="hint">issue a signed Permit</span></h2>
+      <label>Agent <input id="a-agent" value="agent:console:01" /></label>
+      <div class="row">
+        <label>Action
+          <select id="a-action">
+            <option>tool.call</option>
+            <option>file.write</option>
+            <option>payment.transfer</option>
+          </select>
+        </label>
+        <label>Resource <input id="a-resource" value="tool:crm.lookup" /></label>
+      </div>
+      <label>Args (JSON) <textarea id="a-args" rows="3">{"customer": "acme-42"}</textarea></label>
+      <div class="row">
+        <label>TTL (s) <input id="a-ttl" type="number" value="300" /></label>
+        <button id="btn-approve">Sign permit</button>
+      </div>
+      <pre class="out" id="o-approve">—</pre>
+    </div>
+
+    <div class="panel">
+      <h2>2 · Execute <span class="hint">permit is verified server-side</span></h2>
+      <label>Action <input id="e-action" value="tool.call" /></label>
+      <label>Resource <input id="e-resource" value="tool:crm.lookup" /></label>
+      <label>Args (JSON) <textarea id="e-args" rows="3">{"customer": "acme-42"}</textarea></label>
+      <label>Permit (JSON, from step 1) <textarea id="e-permit" rows="5" placeholder='paste permit JSON here — or click “use last permit”'></textarea></label>
+      <div class="row">
+        <button id="btn-use-last">Use last permit</button>
+        <button id="btn-execute" class="primary">Execute</button>
+      </div>
+      <pre class="out" id="o-execute">—</pre>
+    </div>
+  </section>
+
+  <section class="grid">
+    <div class="panel">
+      <h2>3 · Attack demo <span class="hint">one-click red team</span></h2>
+      <div class="row">
+        <button id="btn-legit">Legit request</button>
+        <button id="btn-tamper" class="warn">Tamper args</button>
+        <button id="btn-replay" class="warn">Replay permit</button>
+      </div>
+      <pre class="out" id="o-attacks">—</pre>
+    </div>
+    <div class="panel">
+      <h2>Policy <span class="hint">current rules</span></h2>
+      <table id="t-policy"><thead><tr><th>action</th><th>resource</th><th>tier</th><th>human?</th></tr></thead><tbody></tbody></table>
+    </div>
+  </section>
+
+  <section class="panel wide">
+    <h2>Audit ledger <span class="hint">tamper-evident hash chain</span></h2>
+    <div class="row">
+      <button id="btn-ledger">Refresh</button>
+      <span id="ledger-msg" class="hint"></span>
+    </div>
+    <table id="t-ledger">
+      <thead><tr><th>seq</th><th>event</th><th>action</th><th>resource</th><th>agent</th><th>detail</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+</main>
+
+<footer>PROF v0.1 · Gateway verifies every request server-side · <a href="/docs">API docs</a> · fail-closed</footer>
+<script src="app.js"></script>
+</body>
+</html>

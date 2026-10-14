@@ -20,6 +20,8 @@ import time
 from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from prof.demo_tools import crm_lookup, file_write, payment_transfer
@@ -98,6 +100,26 @@ def _effect(action: str, resource: str):
 @app.get("/healthz")
 def healthz():
     return {"ok": True, "version": VERSION}
+
+
+@app.get("/readyz")
+def readyz():
+    assert _gateway
+    ok, msg = _gateway.ledger.verify_chain()
+    if not ok:
+        raise HTTPException(500, f"ledger invalid: {msg}")
+    return {"ready": True, "ledger": msg, "nonces": _gateway.nonces.size()}
+
+
+@app.get("/v1/policy")
+def get_policy():
+    assert _gateway
+    return _gateway.policy.to_dict()
+
+
+@app.get("/", include_in_schema=False)
+def root():
+    return RedirectResponse("/console/")
 
 
 @app.get("/version")
@@ -186,4 +208,14 @@ def metrics():
 
 def serve() -> None:
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=int(os.environ.get("PORT", "8091")))
+    uvicorn.run(app,
+                host=os.environ.get("HOST", "127.0.0.1"),
+                port=int(os.environ.get("PORT", "8091")))
+
+
+try:
+    import pathlib as _pl
+    _console_dir = str(_pl.Path(__file__).parent / "console")
+    app.mount("/console", StaticFiles(directory=_console_dir, html=True), name="console")
+except Exception:
+    pass  # console optional in minimal installs

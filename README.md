@@ -46,6 +46,30 @@ python examples/03_payment_request.py # payment + replay-deny
 python -m prof gateway                # HTTP gateway on :8091
 ```
 
+## Console dashboard
+
+`python -m prof gateway` then open **http://127.0.0.1:8091/console/** (or `/` redirects there):
+
+- live allow/deny counters, policy id, ledger size + chain validity
+- **Approve** panel — issue a signed Permit in the browser
+- **Execute** panel — run a permit (verified server-side; agent stays untrusted)
+- **Attack demo** — one-click legit / tamper / replay
+- **Audit ledger** — hash-chain entries with tamper detection
+- **Policy** — current risk rules
+
+## Production deploy
+
+```sh
+cp configs/prof.env.example configs/prof.env   # fill PROF_APPROVER_PRIV
+docker compose up -d --build
+curl -sf localhost:8091/readyz && echo READY
+```
+
+- Hardened image (non-root, healthcheck), named volume for ledger+nonces, `unless-stopped`, log rotation
+- Optional TLS edge: `PROF_DOMAIN=prof.example.com docker compose --profile edge up -d`
+- Kubernetes: `deploy/k8s.yaml` (secret + PVC + probes + resource limits)
+- Runbook: [`docs/OPERATIONS.md`](docs/OPERATIONS.md) — keys, rotation, monitoring, backup/restore, bypass incident
+
 ---
 
 ## How it works
@@ -108,12 +132,15 @@ See [`docs/ROADMAP.md`](docs/ROADMAP.md). Open-core: this repo (MIT) is the comm
 ## Repo layout
 
 ```
-prof/            core (permit/policy/gateway/ledger/store/identity/server/cli/mcp_adapter)
+prof/            core (permit/policy/gateway/ledger/store/identity/server/cli/mcp_adapter/console)
 examples/        01_tool_call · 02_file_modify · 03_payment_request · mcp_server · policies/
+deploy/          k8s.yaml · Caddyfile (TLS edge)
+configs/         prof.env.example (production env template)
+scripts/         backup.sh · restore.sh
 sdk-typescript/  TS Gateway client (beta)
 bench/           local microbenchmark (env-disclosed)
-docs/            ARCHITECTURE · SECURITY_MODEL · VERIFICATION · ROADMAP · MCP · POLICY · COMPARISON
-tests/           9 enforcement tests
+docs/            ARCHITECTURE · SECURITY_MODEL · VERIFICATION · ROADMAP · MCP · POLICY · COMPARISON · OPERATIONS
+tests/           14 enforcement + API tests
 ```
 
 ## Contributing

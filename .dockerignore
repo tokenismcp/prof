@@ -1,0 +1,10 @@
+__pycache__
+*.pyc
+.git
+.github
+tests
+bench
+examples
+sdk-typescript
+.pytest_cache
+.venv
