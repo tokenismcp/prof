@@ -13,6 +13,12 @@ Local-first, provider-agnostic, stdlib-only (no extra dependencies).
 | `azure` | OpenAI-compat | your deployment URL | `PROF_LLM_API_KEY` |
 | `openrouter` | OpenAI-compat | `https://openrouter.ai/api/v1` | `PROF_LLM_API_KEY` |
 | `anthropic` | native `/v1/messages` | `https://api.anthropic.com/v1` | `PROF_LLM_API_KEY` |
+| `gemini` | OpenAI-compat layer | `…/v1beta/openai/` | `PROF_LLM_API_KEY` |
+
+Current defaults (Oct 2026, refreshed from vendor announcements; confirm exact
+API IDs with `prof llm-setup`, which lists live catalogs): OpenAI
+`gpt-6-astra` (alt `gpt-6.1-sol`), Anthropic `claude-sonnet-5-5` (alt Opus/Haiku
+5.5, Fable 5.1), Google `gemini-4-argon`.
 
 Anthropic requests use the native tool format and responses are normalized
 back to the OpenAI shape, so the loop is identical for every provider.

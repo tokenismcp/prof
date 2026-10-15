@@ -136,17 +136,20 @@ PROVIDERS = {
              "model": "Qwen/Qwen3-30B-A3B", "needs_key": False,
              "blurb": "Self-hosted vLLM OpenAI-compatible server."},
     "openai": {"protocol": "openai", "base_url": "https://api.openai.com/v1",
-               "model": "gpt-4o-mini", "needs_key": True,
+               "model": "gpt-6-astra", "needs_key": True,
                "blurb": "OpenAI API. Needs PROF_LLM_API_KEY."},
     "azure": {"protocol": "openai", "base_url": "",
               "model": "", "needs_key": True,
               "blurb": "Azure OpenAI. Set PROF_LLM_BASE_URL to your deployment URL + PROF_LLM_MODEL."},
     "openrouter": {"protocol": "openai", "base_url": "https://openrouter.ai/api/v1",
-                   "model": "qwen/qwen3-30b-a3b:free", "needs_key": True,
+                   "model": "openai/gpt-6-astra", "needs_key": True,
                    "blurb": "OpenRouter gateway. Needs PROF_LLM_API_KEY."},
     "anthropic": {"protocol": "anthropic", "base_url": "https://api.anthropic.com/v1",
-                  "model": "claude-sonnet-4-5", "needs_key": True,
+                  "model": "claude-sonnet-5-5", "needs_key": True,
                   "blurb": "Anthropic native API (translated tool format). Needs PROF_LLM_API_KEY."},
+    "gemini": {"protocol": "openai", "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+               "model": "gemini-4-argon", "needs_key": True,
+               "blurb": "Google Gemini API (OpenAI-compat layer). Needs PROF_LLM_API_KEY (AI Studio)."},
 }
 
 
@@ -156,10 +159,11 @@ FALLBACK_MODELS = {
     "ollama": ["gemma4:12b", "gemma3:4b", "qwen3:30b-a3b-instruct-2507-q4_K_M"],
     "lmstudio": ["local-model"],
     "vllm": ["Qwen/Qwen3-30B-A3B"],
-    "openai": ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini"],
+    "openai": ["gpt-6.1-sol", "gpt-6-astra", "gpt-6-sol", "gpt-5.6"],
     "azure": [],
-    "openrouter": ["qwen/qwen3-30b-a3b:free", "openai/gpt-4o-mini"],
-    "anthropic": ["claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-1"],
+    "openrouter": ["openai/gpt-6-astra", "qwen/qwen3-30b-a3b:free"],
+    "anthropic": ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-1"],
+    "gemini": ["gemini-4-argon", "gemini-3.5-flash"],
 }
 
 
