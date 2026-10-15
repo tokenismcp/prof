@@ -423,6 +423,35 @@ def llm_status():
                               "blurb": v["blurb"]} for k, v in PROVIDERS.items()}}
 
 
+@app.get("/v1/llm/models")
+def llm_models(provider: str = "", base_url: str = ""):
+    """Model catalog for a provider. Uses server env (keys never leave server).
+
+    Optional ?provider=&base_url= previews another endpoint's catalog.
+    Falls back to curated defaults (marked) when unlistable/unreachable.
+    """
+    from prof.llm import FALLBACK_MODELS, LLMConfig, PROVIDERS, list_models
+    if provider and provider not in PROVIDERS:
+        raise HTTPException(400, "unknown provider (see /v1/llm/status)")
+    cfg = LLMConfig(provider=provider or None) if provider else LLMConfig()
+    if provider and not base_url:
+        # Previewing a provider: the env endpoint belongs to the gateway's own
+        # provider — use the preset endpoint unless they match.
+        import os as _os
+        if _os.environ.get("PROF_LLM_PROVIDER", "") != provider:
+            cfg.base_url = PROVIDERS[provider]["base_url"]
+    if base_url:
+        cfg.base_url = base_url
+    models = list_models(cfg)
+    if models:
+        return {"provider": cfg.provider, "models": models, "fallback": False}
+    fb = FALLBACK_MODELS.get(cfg.provider, [])
+    preset = PROVIDERS[cfg.provider]["model"]
+    if preset and preset not in fb:
+        fb = [preset, *fb]
+    return {"provider": cfg.provider, "models": fb, "fallback": True}
+
+
 @app.post("/v1/llm/config")
 def llm_config(inp: LLMConfigIn, _t: None = Depends(require_token)):
     """Persist provider/model/base_url (never api keys) to configs/llm.env.

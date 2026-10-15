@@ -150,6 +150,19 @@ PROVIDERS = {
 }
 
 
+# Curated defaults when a provider has no listable catalog (Anthropic has
+# no /models API) or the endpoint is unreachable. Shown marked as fallback.
+FALLBACK_MODELS = {
+    "ollama": ["gemma4:12b", "gemma3:4b", "qwen3:30b-a3b-instruct-2507-q4_K_M"],
+    "lmstudio": ["local-model"],
+    "vllm": ["Qwen/Qwen3-30B-A3B"],
+    "openai": ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini"],
+    "azure": [],
+    "openrouter": ["qwen/qwen3-30b-a3b:free", "openai/gpt-4o-mini"],
+    "anthropic": ["claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-1"],
+}
+
+
 class LLMError(RuntimeError):
     pass
 

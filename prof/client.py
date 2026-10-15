@@ -69,6 +69,14 @@ class GatewayClient:
     def llm_status(self) -> dict:
         return self._call("GET", "/v1/llm/status")
 
+    def llm_models(self, provider: str = "", base_url: str = "") -> dict:
+        q = []
+        if provider:
+            q.append("provider=" + provider)
+        if base_url:
+            q.append("base_url=" + base_url)
+        return self._call("GET", "/v1/llm/models" + ("?" + "&".join(q) if q else ""))
+
     def llm_config(self, provider: str = "", model: str = "",
                    base_url: str = "") -> dict:
         return self._call("POST", "/v1/llm/config",

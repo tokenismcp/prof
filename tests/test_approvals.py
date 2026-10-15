@@ -75,6 +75,20 @@ def test_llm_status_shape_and_no_key_leak():
     assert not secret or secret not in r.text
 
 
+def test_llm_models_catalog_per_provider():
+    c = _client()
+    r = c.get("/v1/llm/models?provider=nope")
+    assert r.status_code == 400
+    # Anthropic has no list API: deterministic curated fallback, no network
+    r = c.get("/v1/llm/models?provider=anthropic")
+    body = r.json()
+    assert body["provider"] == "anthropic" and body["fallback"] is True
+    assert "claude-sonnet-4-5" in body["models"]
+    # default (gateway env) still works
+    r = c.get("/v1/llm/models")
+    assert "models" in r.json() and "fallback" in r.json()
+
+
 def test_llm_config_saves_without_secrets():
     import pathlib
     c = _client()

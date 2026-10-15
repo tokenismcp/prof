@@ -358,11 +358,26 @@ async function loadLLM(quiet) {
     if (!s.reachable && !quiet) toast("err", "LLM unreachable", (s.info || "").slice(0, 160));
   } catch { const el = $("llm-state"); el.textContent = "unreachable"; el.classList.add("bad"); }
 }
+function chosenModel() {
+  const custom = $("llm-custom").value.trim();
+  return custom || $("llm-pick").value || "";
+}
+async function loadModelsFor(provider) {
+  const pick = $("llm-pick"), cur = pick.value;
+  try {
+    const s = await jget("/v1/llm/models" + (provider ? "?provider=" + encodeURIComponent(provider) : ""));
+    pick.innerHTML = '<option value="">gateway default</option>' +
+      (s.models || []).map((m) => `<option>${esc(m)}</option>`).join("");
+    if ([...pick.options].some((o) => o.value === cur)) pick.value = cur;
+    if (s.fallback) toast("", "Catalog unavailable", "showing known models — or type a custom name");
+  } catch { /* keep previous list */ }
+}
+$("llm-prov").onchange = () => loadModelsFor($("llm-prov").value);
 $("btn-llm-check").onclick = () => loadLLM(false);
 $("btn-llm-save").onclick = async () => {
   const body = {};
   if ($("llm-prov").value) body.provider = $("llm-prov").value;
-  if ($("llm-pick").value) body.model = $("llm-pick").value;
+  if (chosenModel()) body.model = chosenModel();
   if (!body.provider && !body.model) { toast("err", "Nothing to save", "pick a provider or model first"); return; }
   const res = await jpost("/v1/llm/config", body);
   if (res.status !== 200) { toast("err", "Save failed", JSON.stringify(res.body).slice(0, 160)); return; }
@@ -376,7 +391,7 @@ $("btn-agent-run").onclick = async () => {
   const { status, body } = await jpost("/v1/agent/run", { task, max_steps: 8,
     human_approve: $("agent-human").checked, wait_approval: $("agent-wait").checked,
     approval_timeout_s: 120, provider_override: $("llm-prov").value || "",
-    model_override: $("llm-pick").value || "" });
+    model_override: chosenModel() });
   if (status !== 200) {
     show("o-agent", `HTTP ${status}\n` + JSON.stringify(body, null, 2));
     toast("err", "Agent run failed", (body.detail || "").slice(0, 160));

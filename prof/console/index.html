@@ -127,9 +127,12 @@
         </dl>
         <div class="row2">
           <label>Provider<select id="llm-prov"><option value="">gateway default</option></select></label>
-          <label>Run with model<select id="llm-pick"><option value="">gateway default</option></select></label>
+          <label>Model<select id="llm-pick"><option value="">gateway default</option></select></label>
         </div>
-        <div class="row" style="margin-top:8px"><span class="row"><button id="btn-llm-check">Check again</button><button id="btn-llm-save">Save to gateway</button></span></div>
+        <div class="row2">
+          <label>…or custom model name<input id="llm-custom" placeholder="e.g. gemma4:12b" /></label>
+          <label class="self-end"><span class="row"><button id="btn-llm-check">Check again</button><button id="btn-llm-save">Save to gateway</button></span></label>
+        </div>
         <p class="mut small">Local (Ollama, LM Studio, vLLM) or hosted (OpenAI, Azure, OpenRouter, Anthropic). API keys stay environment-only — the console never accepts or shows them. Saving writes <span class="mono">configs/llm.env</span>; restart the gateway to apply.</p>
       </div>
       <div class="panel">
