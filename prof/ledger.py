@@ -37,8 +37,9 @@ class LedgerEntry:
 
 
 class Ledger:
-    def __init__(self, path: Optional[str] = None):
+    def __init__(self, path: Optional[str] = None, fsync: bool = False):
         self._path = path
+        self._fsync = fsync or os.environ.get("PROF_LEDGER_FSYNC", "0") == "1"
         self.entries: List[LedgerEntry] = []
         if path and os.path.exists(path):
             self._load()
@@ -48,6 +49,7 @@ class Ledger:
             self._genesis_hash = gh
         else:
             self._genesis_hash = self.entries[0].prev_hash
+        self._verified_head = self._genesis_hash
 
     @property
     def head(self) -> str:
@@ -68,10 +70,19 @@ class Ledger:
                         action=action, resource=resource, subject=subject,
                         agent=agent, detail=detail, prev_hash=prev, entry_hash=h)
         self.entries.append(e)
-        self._save()
+        self._persist(e)
         return e
 
     def verify_chain(self) -> tuple[bool, str]:
+        """Verify append-only integrity over EVERY entry, every time.
+
+        Deliberately no incremental cache: a cache that trusts the prefix
+        blindly can miss in-memory tampering of already-verified entries
+        (proven by test_incremental_* during review — removed, not shipped).
+        Cost is ~1 hash/entry; see bench/ for measured numbers. If chains
+        outgrow single-pass verification, the honest fix is segmented
+        checkpointing, not skipped checks.
+        """
         prev = self._genesis_hash
         for e in self.entries:
             core = {"seq": e.seq, "ts": e.ts, "event": e.event, "permit_nonce": e.permit_nonce,
@@ -85,16 +96,34 @@ class Ledger:
             prev = e.entry_hash
         return True, f"ok: {len(self.entries)} entries, head {prev[:18]}..."
 
-    def _save(self) -> None:
+    def _persist(self, e: LedgerEntry) -> None:
+        """Append one JSONL line (O(1)). Legacy array files are still readable."""
+        if not self._path:
+            return
+        with open(self._path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(asdict(e), ensure_ascii=False) + "\n")
+            f.flush()
+            if self._fsync:
+                os.fsync(f.fileno())
+
+    def _save(self) -> None:  # kept for explicit snapshots (tests, rotation)
         if not self._path:
             return
         tmp = self._path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
-            json.dump([asdict(e) for e in self.entries], f, indent=2)
+            for e in self.entries:
+                f.write(json.dumps(asdict(e), ensure_ascii=False) + "\n")
         os.replace(tmp, self._path)
 
     def _load(self) -> None:
         assert self._path
         with open(self._path, "r", encoding="utf-8") as f:
-            raw = json.load(f)
+            head = f.read(1)
+            if not head:
+                return
+            f.seek(0)
+            if head == "[":
+                raw = json.load(f)  # v1 array format
+            else:
+                raw = [json.loads(line) for line in f if line.strip()]
         self.entries = [LedgerEntry(**r) for r in raw]

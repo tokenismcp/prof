@@ -2,12 +2,16 @@
 
 ## Status: Developer Preview — reproducible, not certified
 
-- `python -m pytest -q` — 52 tests: enforcement, tamper/replay/expiry/scope,
-  SQLite persistence/idempotency/funds, MCP protocol (against the installed
-  binary), LLM loop (allow/deny/human paths), approval queue, token auth,
-  rate limits, body cap, headers, 16-thread nonce race (exactly one allow),
-  audit-trail completeness, and live-server e2e (remote MCP + LLM→queue→
-  human→payment with real balance movement).
+- `python -m pytest -q` — 58 tests: enforcement, tamper/replay/expiry/scope,
+  SQLite persistence/idempotency/funds, nonce expiry-prune + journal + legacy
+  migration, ledger JSONL + legacy load + tamper-anywhere detection, MCP
+  protocol (against the installed binary), LLM loop (allow/deny/human paths),
+  approval queue, token auth, rate limits, body cap, headers, 16-thread nonce
+  race (exactly one allow), audit-trail completeness, and live-server e2e
+  (remote MCP + LLM→queue→human→payment with real balance movement).
+- `PYTHONPATH=. python3 bench/bench.py` — latency percentiles, component
+  breakdown, persistence cost, 8-thread TPS + mis-decision count, verify
+  scaling, memory/entry. Numbers + limits: `docs/PERFORMANCE.md`.
 - `python -m prof demo` — allow + 3 attack denials in one run, ledger verified.
 - `examples/0*.py` — 3 reference workflows (tool call, file modify, payment).
 

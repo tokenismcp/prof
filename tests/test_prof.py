@@ -81,13 +81,14 @@ def test_ledger_tamper_evident(tmp_path):
     gw.execute(ExecuteRequest("tool.call", "tool:crm.lookup", args, p), crm_lookup)
     ok, _ = gw.ledger.verify_chain()
     assert ok
-    # tamper with file
+    # tamper with file (JSONL: one entry per line)
     import json
     with open(lp) as f:
-        raw = json.load(f)
-    raw[0]["detail"] = "forged"
+        lines = [json.loads(x) for x in f if x.strip()]
+    lines[0]["detail"] = "forged"
     with open(lp, "w") as f:
-        json.dump(raw, f)
+        for r in lines:
+            f.write(json.dumps(r) + "\n")
     led2 = Ledger(lp)
     ok2, msg2 = led2.verify_chain()
     assert not ok2, msg2

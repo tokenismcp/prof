@@ -96,6 +96,25 @@ def verify_ledger(path):
         raise click.ClickException("ledger INVALID")
 
 
+@main.command("audit")
+@click.option("--ledger", default=None, help="ledger file (default: $PROF_LEDGER or ephemeral)")
+@click.option("--limit", default=20, show_default=True)
+def audit(ledger, limit):
+    """Verify the chain and print recent entries (operator audit)."""
+    import os as _os
+    led = Ledger(ledger or _os.environ.get("PROF_LEDGER"))
+    ok, msg = led.verify_chain()
+    click.echo(msg)
+    counts: dict = {}
+    for e in led.entries:
+        counts[e.event] = counts.get(e.event, 0) + 1
+    click.echo("events: " + " ".join(f"{k}={v}" for k, v in sorted(counts.items())))
+    for e in led.entries[-max(1, limit):]:
+        click.echo(f"#{e.seq} {e.event:8} {e.action} {e.resource} {e.agent} :: {(e.detail or '')[:80]}")
+    if not ok:
+        raise click.ClickException("ledger INVALID")
+
+
 @main.command("llm-check")
 @click.option("--base-url", default=None)
 @click.option("--model", default=None)

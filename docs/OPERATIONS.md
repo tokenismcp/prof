@@ -36,7 +36,15 @@ python -c "from prof.identity import Approver; a=Approver.generate('user:alice')
 
 ## Backup / restore
 
-Ledger + nonces are the durable state (`/data`). `scripts/backup.sh` snapshots both; `scripts/restore.sh` restores and re-verifies the chain. Restoring a forked/old copy is detectable: nonces already spent will deny replays, and chain verify fails on tampering.
+Ledger + nonces + SQLite DB are the durable state (`/data`). `scripts/backup.sh` snapshots all three; `scripts/restore.sh` restores and re-verifies the chain. Restoring a forked/old copy is detectable: nonces already spent will deny replays, and chain verify fails on tampering.
+
+## Ledger rotation (growth control)
+
+The ledger is append-only by design (~0.5 KB/entry in RAM, linear verify —
+see `docs/PERFORMANCE.md`). When it outgrows operations: stop the gateway,
+`prof verify-ledger /data/ledger.json`, archive the file offline, restart
+with a fresh chain, and keep archives verifiable. Never delete entries from
+a live chain — verification would (correctly) fail.
 
 ## Incident: suspected bypass
 

@@ -89,8 +89,9 @@ class Gateway:
         if p.policy_id != self.policy.policy_id:
             return self._deny(req, f"deny: policy version mismatch ({p.policy_id} != {self.policy.policy_id})", tier=dec.tier)
 
-        # 5. Fresh(nonce) — reserve atomically; replay -> deny
-        if not self.nonces.check_and_reserve(p.nonce, now):
+        # 5. Fresh(nonce) — reserve atomically; replay -> deny.
+        # The nonce is bound to the permit expiry, so dead permits are pruned.
+        if not self.nonces.check_and_reserve(p.nonce, now, p.expiry):
             return self._deny(req, f"deny: replay (nonce {p.nonce[:12]}... already used)", tier=dec.tier)
 
         e = self.ledger.append("allow", p.nonce, req.action, req.resource, p.subject, p.agent, f"tier={dec.tier}")

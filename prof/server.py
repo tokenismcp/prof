@@ -86,6 +86,12 @@ async def _security_middleware(request: Request, call_next):
     resp.headers["X-Content-Type-Options"] = "nosniff"
     resp.headers["X-Frame-Options"] = "DENY"
     resp.headers["Referrer-Policy"] = "no-referrer"
+    if resp.status_code in (401, 429):
+        import sys as _sys
+        import time as _t
+        host = request.client.host if request.client else "?"
+        print(f"[prof][auth] {resp.status_code} {request.method} {request.url.path} from {host} "
+              f"at {int(_t.time())}", file=_sys.stderr)
     return resp
 
 

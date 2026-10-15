@@ -142,6 +142,10 @@ curl -s -X POST localhost:8091/v1/approve -H 'content-type: application/json' \
 
 `POST /v1/execute` enforces server-side and runs the registered effect only on allow. Unknown tool paths → deny (fail-closed).
 
+## Performance (measured)
+
+Reference machine (macOS arm64, Python 3.9): authorize+execute **p50 182 µs** in-process, **p50 1.5 ms** over local HTTP; 8-thread **11,458 TPS with 0 mis-decisions**; 10k-entry chain verifies in 33 ms. Bottleneck at scale is ledger growth (~0.5 KB/entry) — see rotation procedure. Full tables, method, limits: [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md). Reproduce: `PYTHONPATH=. python3 bench/bench.py`.
+
 ## Security (on by default where configured)
 
 Set `PROF_API_TOKEN` and all writes + the approval queue require Bearer auth (console lock icon prompts per tab). Every response carries hardened headers; 1 MB body cap and per-IP rate limiting (`PROF_RATE_LIMIT`) on hot paths. Full model: [`SECURITY.md`](SECURITY.md).
@@ -185,7 +189,7 @@ scripts/         backup.sh · restore.sh
 sdk-typescript/  TS Gateway client (beta)
 bench/           local microbenchmark (env-disclosed)
 docs/            ARCHITECTURE · SECURITY_MODEL · VERIFICATION · ROADMAP · MCP · POLICY · COMPARISON · OPERATIONS · AGENTS · LLM · DATA
-tests/           38 enforcement + API + MCP + LLM + data tests
+tests/           58 enforcement + API + MCP + LLM + data + storage + security + e2e tests
 ```
 
 ## Contributing

@@ -12,6 +12,8 @@
 - Fixed `_effect` routing bug: non-exact resources (e.g. `account:krw-1`) were wrongly denied over HTTP; glob-matched effects now resolve correctly
 - Security hardening: Bearer auth (`PROF_API_TOKEN`) on writes + approval queue, security headers, 1 MB body cap, per-IP rate limits, console token prompt; secrets never logged
 - True integration: remote gateway client (`prof/client.py`, `PROF_GATEWAY_URL` mode for MCP), LLM loop ↔ approval queue via `wait_approval`, `agent_run` ledger summaries, 16-thread replay race test, audit-completeness test, live-server e2e (52 tests)
+- Deep performance audit: `bench/bench.py` v2 (percentiles, component costs, persistence modes, threaded TPS, verify scaling, RSS/entry, optional live HTTP) + `docs/PERFORMANCE.md` with reference numbers and rotation guidance
+- Storage hardening: expiry-bound nonce pruning (safe: expired permits deny anyway), JSONL journals for nonces+ledger (O(1) appends), legacy format migration, rejected unsound incremental verify (documented), 401/429 stderr audit logging, `prof audit` CLI, DB in backup script
 - Real data layer (`prof/resources.py`): SQLite customers/accounts/payments/file registry, balances in cents, persisted idempotency, hash-chained file writes, sandbox enforcement, `PROF_DB` for production persistence
 - LLM API integration (`prof/llm.py`): provider-agnostic OpenAI-compatible client (stdlib only) + proof-required agentic loop (`prof agent-run`, `prof llm-check`), high-tier needs human sign-off
 - Agent surface hardened: `prof-mcp` now runs the real stdio server, `examples/mcp_server.py` is a working launcher, protocol tests run against the installed binary
