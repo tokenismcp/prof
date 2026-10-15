@@ -60,7 +60,7 @@ python -m prof gateway                # HTTP gateway on :8091
 ## Production deploy
 
 ```sh
-cp configs/prof.env.example configs/prof.env   # fill PROF_APPROVER_PRIV
+cp configs/prof.env.example configs/prof.env   # fill PROF_APPROVER_PRIV + PROF_API_TOKEN
 docker compose up -d --build
 curl -sf localhost:8091/readyz && echo READY
 ```
@@ -141,6 +141,10 @@ curl -s -X POST localhost:8091/v1/approve -H 'content-type: application/json' \
 ```
 
 `POST /v1/execute` enforces server-side and runs the registered effect only on allow. Unknown tool paths → deny (fail-closed).
+
+## Security (on by default where configured)
+
+Set `PROF_API_TOKEN` and all writes + the approval queue require Bearer auth (console lock icon prompts per tab). Every response carries hardened headers; 1 MB body cap and per-IP rate limiting (`PROF_RATE_LIMIT`) on hot paths. Full model: [`SECURITY.md`](SECURITY.md).
 
 ## Security: honest boundaries
 

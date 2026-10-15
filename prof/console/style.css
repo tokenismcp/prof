@@ -23,6 +23,10 @@ a{color:var(--cyan)}
 .tabs button:hover{color:var(--txt);background:#eef1f6}
 .tabs button.on{color:var(--txt);background:#e8edf5}
 .hstatus{display:flex;align-items:center;gap:10px;margin-left:auto}
+.lock{background:#fff;border:1px solid var(--line2);border-radius:8px;padding:6px;cursor:pointer;display:flex}
+.lock svg{width:15px;height:15px;fill:none;stroke:var(--mut);stroke-width:1.8;stroke-linecap:round}
+.lock.set svg{stroke:var(--ok)}
+.lock:hover{border-color:var(--acc)}
 .health{font-size:12.5px;color:var(--mut);display:inline-flex;align-items:center;gap:7px}
 .ver{font-size:12px;color:var(--mut);border:1px solid var(--line);border-radius:999px;padding:3px 11px;background:#fff}
 .dot{width:8px;height:8px;border-radius:50%;display:inline-block}

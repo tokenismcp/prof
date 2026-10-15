@@ -2,7 +2,12 @@
 
 ## Status: Developer Preview — reproducible, not certified
 
-- `python -m pytest -q` — 9 tests covering allow, tamper-deny, replay-deny, expiry-deny, scope-deny, ledger-tamper-evidence.
+- `python -m pytest -q` — 52 tests: enforcement, tamper/replay/expiry/scope,
+  SQLite persistence/idempotency/funds, MCP protocol (against the installed
+  binary), LLM loop (allow/deny/human paths), approval queue, token auth,
+  rate limits, body cap, headers, 16-thread nonce race (exactly one allow),
+  audit-trail completeness, and live-server e2e (remote MCP + LLM→queue→
+  human→payment with real balance movement).
 - `python -m prof demo` — allow + 3 attack denials in one run, ledger verified.
 - `examples/0*.py` — 3 reference workflows (tool call, file modify, payment).
 

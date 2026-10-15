@@ -80,14 +80,38 @@ def _tool_defs() -> list:
     ]
 
 
+_TOOL_BINDING = {
+    "crm.lookup": ("tool.call", "tool:crm.lookup"),
+    "file.write": ("file.write", "file:/tmp/**"),
+    "payment.transfer": ("payment.transfer", "account:krw-1"),
+}
+
+_TOOL_FNS = {
+    "crm.lookup": crm_lookup,
+    "file.write": file_write,
+    "payment.transfer": payment_transfer,
+}
+
+
 class MCPServer:
-    def __init__(self) -> None:
-        self.approver, self.gw = build_demo_gateway()
-        self._effects = {
-            "crm.lookup": ("tool.call", "tool:crm.lookup", crm_lookup),
-            "file.write": ("file.write", "file:/tmp/**", file_write),
-            "payment.transfer": ("payment.transfer", "account:krw-1", payment_transfer),
-        }
+    """Local mode (default): private in-process gateway + ephemeral approver.
+
+    Remote mode (PROF_GATEWAY_URL set): approve/execute are delegated to the
+    shared HTTP gateway, so MCP traffic lands in the same ledger, policy and
+    nonce store as the console, CLI and LLM loop. One gateway, many frontends.
+    """
+
+    def __init__(self, gateway_url: str = "") -> None:
+        import os as _os
+        self.remote = None
+        self.gateway_url = gateway_url or _os.environ.get("PROF_GATEWAY_URL", "")
+        if self.gateway_url:
+            from prof.client import GatewayClient
+            self.remote = GatewayClient(self.gateway_url)
+            self.approver, self.gw = None, None
+        else:
+            self.approver, self.gw = build_demo_gateway()
+        self._effects = {name: _TOOL_FNS[name] for name in _TOOL_BINDING}
 
     # ---- handlers ----
     def handle(self, msg: Dict[str, Any]) -> Dict[str, Any] | None:
@@ -128,18 +152,27 @@ class MCPServer:
     def _call(self, name: str, args: Dict[str, Any]) -> Dict[str, Any]:
         if name == "prof.approve":
             return self._text(self._approve(args))
-        if name not in self._effects:
+        if name not in _TOOL_BINDING:
             return self._text({"ok": False, "error": f"unknown tool: {name}"}, True)
-        action, resource, fn = self._effects[name]
+        action, resource = _TOOL_BINDING[name]
         raw_permit = args.get("permit")
         if not isinstance(raw_permit, dict):
             return self._text({"ok": False,
                                "error": "missing permit: call prof.approve first and pass its result as 'permit'"}, True)
         call_args = {k: v for k, v in args.items() if k != "permit"}
+        if self.remote is not None:
+            try:
+                out = self.remote.execute(action, resource, call_args, raw_permit)
+            except Exception as exc:
+                return self._text({"ok": False, "decision": str(exc)}, True)
+            if not out.get("ok"):
+                return self._text({"ok": False, "decision": out.get("decision", "denied")}, True)
+            return self._text(out)
         try:
             permit = Permit.from_dict(raw_permit)
         except Exception as exc:
             return self._text({"ok": False, "error": f"bad permit: {exc}"}, True)
+        fn = self._effects[name]
         dec, result = self.gw.execute(ExecuteRequest(action, resource, call_args, permit), fn)
         if not dec.allow:
             return self._text({"ok": False, "decision": dec.reason}, True)
@@ -153,6 +186,12 @@ class MCPServer:
         ttl = int(args.get("ttl_s", 300))
         if not isinstance(call_args, dict):
             return {"ok": False, "error": "args must be an object"}
+        if self.remote is not None:
+            try:
+                permit = self.remote.approve(agent, action, resource, call_args, ttl)
+            except Exception as exc:
+                return {"ok": False, "error": str(exc)}
+            return {"ok": True, "permit": permit}
         pol = self.gw.policy.evaluate(action, resource, call_args)
         if not pol.allow:
             return {"ok": False, "error": f"policy deny: {pol.reason}"}

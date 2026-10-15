@@ -18,7 +18,7 @@ import os
 import time
 from typing import Any, Dict, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -37,6 +37,72 @@ app = FastAPI(title="PROF Gateway", version=VERSION)
 
 _approver: Optional[Approver] = None
 _gateway: Optional[Gateway] = None
+
+
+# ---- security: token auth, headers, body cap, rate limit ----
+def _api_token() -> str:
+    return os.environ.get("PROF_API_TOKEN", "")
+
+
+async def require_token(request: Request) -> None:
+    """Bearer auth for every state-changing or approval-queue endpoint.
+
+    Disabled when PROF_API_TOKEN is unset (local demo). Set it in any
+    shared/production deployment; the console prompts for it (lock icon).
+    """
+    want = _api_token()
+    if not want:
+        return
+    import hmac
+    got = request.headers.get("authorization", "")
+    if not got.lower().startswith("bearer ") or not hmac.compare_digest(
+            got[7:].strip(), want):
+        raise HTTPException(401, "missing or invalid API token",
+                            headers={"WWW-Authenticate": "Bearer"})
+
+
+@app.middleware("http")
+async def _security_middleware(request: Request, call_next):
+    # 1 MB body cap (permits/args are small JSON; fail fast on abuse)
+    try:
+        if int(request.headers.get("content-length", "0") or 0) > 1_000_000:
+            from fastapi.responses import JSONResponse
+            return JSONResponse({"detail": "body too large (1 MB cap)"}, status_code=413)
+    except ValueError:
+        pass
+    # per-IP sliding-window rate limit on hot mutating paths
+    if request.method == "POST" and request.url.path in (
+            "/v1/approve", "/v1/execute", "/v1/agent/run"):
+        try:
+            limit = int(os.environ.get("PROF_RATE_LIMIT", "300"))
+        except ValueError:
+            limit = 300
+        if limit > 0 and not _check_rate(request.client.host if request.client else "?",
+                                        request.url.path, limit):
+            from fastapi.responses import JSONResponse
+            return JSONResponse({"detail": "rate limit exceeded, retry later"},
+                                status_code=429, headers={"Retry-After": "60"})
+    resp = await call_next(request)
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["Referrer-Policy"] = "no-referrer"
+    return resp
+
+
+_rate_buckets: Dict[str, list] = {}
+
+
+def _check_rate(key_host: str, path: str, limit: int) -> bool:
+    import time as _t
+    now = _t.time()
+    key = f"{key_host}:{path}"
+    hits = [t for t in _rate_buckets.get(key, []) if now - t < 60]
+    if len(hits) >= limit:
+        _rate_buckets[key] = hits
+        return False
+    hits.append(now)
+    _rate_buckets[key] = hits[-limit:]
+    return True
 
 
 def _init() -> None:
@@ -98,6 +164,8 @@ class AgentRunIn(BaseModel):
     task: str
     max_steps: int = 8
     human_approve: bool = False
+    wait_approval: bool = False
+    approval_timeout_s: int = 120
 
 
 # In-process human-approval queue. Lost on restart by design in v0.1
@@ -166,7 +234,7 @@ def version():
 
 
 @app.post("/v1/approve")
-def approve(inp: ApproveIn):
+def approve(inp: ApproveIn, _t: None = Depends(require_token)):
     assert _approver and _gateway
     dec = _gateway.policy.evaluate(inp.action, inp.resource, inp.args)
     if not dec.allow:
@@ -189,7 +257,7 @@ def approve(inp: ApproveIn):
 
 
 @app.post("/v1/execute")
-def execute(inp: ExecuteIn):
+def execute(inp: ExecuteIn, _t: None = Depends(require_token)):
     assert _gateway
     try:
         permit = Permit.from_dict(inp.permit)
@@ -217,42 +285,48 @@ def _match_effect(action: str, resource: str):
 
 
 # ---- human approval queue (high-tier workflow) ----
-@app.post("/v1/requests")
-def create_request(inp: RequestIn):
+def _open_request(agent: str, action: str, resource: str, args: Dict[str, Any],
+                  ttl_s: int = 300) -> Dict[str, Any]:
+    """Shared core: validate tier and open a pending request (ledger-logged)."""
     assert _approver and _gateway
-    dec = _gateway.policy.evaluate(inp.action, inp.resource, inp.args)
+    dec = _gateway.policy.evaluate(action, resource, args)
     if not dec.allow:
         raise HTTPException(403, f"policy deny: {dec.reason}")
     if not dec.require_human:
         raise HTTPException(400, "not a high-tier action: use POST /v1/approve directly")
     rid = _new_request_id()
-    _REQUESTS[rid] = {"id": rid, "status": "pending", "agent": inp.agent,
-                      "action": inp.action, "resource": inp.resource,
-                      "args": inp.args, "ttl_s": int(inp.ttl_s),
+    _REQUESTS[rid] = {"id": rid, "status": "pending", "agent": agent,
+                      "action": action, "resource": resource,
+                      "args": args, "ttl_s": int(ttl_s),
                       "tier": dec.tier, "policy_reason": dec.reason,
                       "created_ts": int(time.time()), "decided_ts": None,
                       "permit": None, "deny_reason": None}
-    _gateway.ledger.append("request", rid, inp.action, inp.resource,
-                           _approver.subject, inp.agent, f"tier={dec.tier} pending human")
+    _gateway.ledger.append("request", rid, action, resource,
+                           _approver.subject, agent, f"tier={dec.tier} pending human")
     return _REQUESTS[rid]
 
 
+@app.post("/v1/requests")
+def create_request(inp: RequestIn, _t: None = Depends(require_token)):
+    return _open_request(inp.agent, inp.action, inp.resource, inp.args, inp.ttl_s)
+
+
 @app.get("/v1/requests")
-def list_requests(status: str = "pending"):
+def list_requests(status: str = "pending", _t: None = Depends(require_token)):
     assert _gateway
     items = [r for r in _REQUESTS.values() if status == "all" or r["status"] == status]
     return {"requests": sorted(items, key=lambda r: r["created_ts"], reverse=True)}
 
 
 @app.get("/v1/requests/{rid}")
-def get_request(rid: str):
+def get_request(rid: str, _t: None = Depends(require_token)):
     if rid not in _REQUESTS:
         raise HTTPException(404, f"unknown request: {rid}")
     return _REQUESTS[rid]
 
 
 @app.post("/v1/requests/{rid}/approve")
-def approve_request(rid: str):
+def approve_request(rid: str, _t: None = Depends(require_token)):
     assert _approver and _gateway
     req = _REQUESTS.get(rid)
     if req is None:
@@ -274,7 +348,7 @@ def approve_request(rid: str):
 
 
 @app.post("/v1/requests/{rid}/deny")
-def deny_request(rid: str, inp: DenyIn):
+def deny_request(rid: str, inp: DenyIn, _t: None = Depends(require_token)):
     assert _gateway
     req = _REQUESTS.get(rid)
     if req is None:
@@ -300,20 +374,59 @@ def llm_status():
 
 
 @app.post("/v1/agent/run")
-def agent_run(inp: AgentRunIn):
+def agent_run(inp: AgentRunIn, _t: None = Depends(require_token)):
     assert _approver and _gateway
     from prof.llm import LLMConfig, LLMError, run_task
     from prof.resources import crm_lookup, file_write, payment_transfer
+    approve_fn = None
+    if inp.wait_approval and not inp.human_approve:
+        approve_fn = _queue_wait_approver(timeout_s=max(5, min(inp.approval_timeout_s, 600)))
     try:
         res = run_task(inp.task, _approver, _gateway,
                        {"crm.lookup": crm_lookup, "file.write": file_write,
                         "payment.transfer": payment_transfer},
                        cfg=LLMConfig(), max_steps=max(1, min(inp.max_steps, 12)),
-                       human_approve=inp.human_approve)
+                       human_approve=inp.human_approve, approve_fn=approve_fn)
     except LLMError as exc:
         raise HTTPException(502, str(exc))
+    _gateway.ledger.append("agent_run", f"task-{len(_gateway.ledger.entries)}",
+                           "agent.run", "agent:llm",
+                           _approver.subject, "agent:llm",
+                           f"allowed={res.allowed} denied={res.denied} "
+                           f"answer={res.answer[:160]}")
     return {"answer": res.answer, "steps": res.steps,
             "allowed": res.allowed, "denied": res.denied}
+
+
+def _queue_wait_approver(timeout_s: int):
+    """approve_fn for run_task: open a queue request and block until a human
+    decides (or timeout). Connects the LLM loop to the approval workflow."""
+    import time as _t
+
+    def _fn(tool_name: str, tool_args: Dict[str, Any]) -> bool:
+        binding = {"file.write": ("file.write", f"file:{tool_args.get('path', '')}"),
+                   "payment.transfer": ("payment.transfer", "account:krw-1")}
+        if tool_name not in binding:
+            return False
+        action, resource = binding[tool_name]
+        try:
+            req = _open_request("agent:llm", action, resource, tool_args)
+        except HTTPException:
+            return False
+        rid = req["id"]
+        deadline = _t.time() + timeout_s
+        while _t.time() < deadline:
+            st = _REQUESTS.get(rid, {}).get("status")
+            if st == "approved":
+                return True
+            if st == "denied":
+                return False
+            _t.sleep(1.0)
+        _REQUESTS.get(rid, {}).update(status="denied", decided_ts=int(_t.time()),
+                                      deny_reason="approval timeout")
+        return False
+
+    return _fn
 
 
 @app.get("/v1/ledger")

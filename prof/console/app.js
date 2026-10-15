@@ -29,12 +29,41 @@ if (["overview","operate","verify","agents","ledger","policy"].includes(location
 if (location.hash === "#redteam") goTab("verify");
 
 /* ---------- api + toast ---------- */
-async function jget(p) { const r = await fetch(p); if (!r.ok) throw new Error(p + " " + r.status); return r.json(); }
+function apiToken() { try { return sessionStorage.getItem("prof_token") || ""; } catch { return ""; } }
+function apiHeaders(extra) {
+  const h = { ...(extra || {}) };
+  const t = apiToken();
+  if (t) h["authorization"] = "Bearer " + t;
+  return h;
+}
+async function jget(p) {
+  const r = await fetch(p, { headers: apiHeaders() });
+  if (r.status === 401) { needToken(); throw new Error("unauthorized"); }
+  if (!r.ok) throw new Error(p + " " + r.status);
+  return r.json();
+}
 async function jpost(p, b) {
-  const r = await fetch(p, { method: "POST", headers: {"content-type":"application/json"}, body: JSON.stringify(b) });
+  const r = await fetch(p, { method: "POST", headers: apiHeaders({"content-type":"application/json"}), body: JSON.stringify(b) });
+  if (r.status === 401) { needToken(); return { status: 401, body: { detail: "API token required — click the lock icon" } }; }
   const t = await r.json().catch(() => ({ ok:false, error:"bad response" }));
   return { status: r.status, body: t };
 }
+function needToken() {
+  toast("err", "API token required", "click the lock icon (top right) and paste the gateway token");
+}
+$("btn-key").onclick = () => {
+  const cur = apiToken();
+  const v = prompt("PROF API token (empty to clear):", cur);
+  if (v === null) return;
+  try {
+    if (v.trim()) sessionStorage.setItem("prof_token", v.trim());
+    else sessionStorage.removeItem("prof_token");
+  } catch { /* private mode */ }
+  $("btn-key").classList.toggle("set", !!apiToken());
+  toast("ok", "Token " + (apiToken() ? "saved for this tab" : "cleared"), "");
+  refresh();
+};
+if (apiToken()) $("btn-key").classList.add("set");
 function toast(kind, title, msg) {
   const d = document.createElement("div");
   d.className = "toast " + (kind === "ok" ? "ok" : kind === "err" ? "err" : "");

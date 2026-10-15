@@ -70,13 +70,24 @@ CLI: `prof llm-check`, `prof agent-run "task" [--human-approve]`.
 API: `GET /v1/llm/status`, `POST /v1/agent/run`. Full loop spec: `docs/LLM.md`.
 
 ## 8 · Human approval queue (high-tier workflow)
-
 High-risk actions can't self-approve. They open a request (`POST /v1/requests`)
 that a human signs (`POST /v1/requests/{id}/approve`) or rejects (`.../deny`)
 in the console Approver panel or via API. The issued permit carries
 `constraints.approved_by=human` + request id, and every transition is
 ledger-logged. Operate-tab "Request human approval" polls until decided and
 loads the signed permit automatically.
+
+## 9 · One gateway, many frontends (remote mode)
+
+Set `PROF_GATEWAY_URL=http://your-gateway:8091` and the MCP server enforces
+through the shared gateway — same ledger, policy and nonce store as the
+console, CLI and LLM loop. Authenticated automatically via `PROF_API_TOKEN`.
+
+```sh
+PROF_GATEWAY_URL=http://127.0.0.1:8091 prof mcp   # MCP traffic in server ledger
+prof agent-run "Send 250 to acct-9" --gateway-url http://127.0.0.1:8091 --wait-approval
+# high-tier opens a queue request; a human approves in console → payment executes
+```
 
 ## Tool → PROF mapping (hooks)
 

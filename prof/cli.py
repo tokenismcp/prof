@@ -120,11 +120,32 @@ def llm_check(base_url, model):
 @click.option("--max-steps", default=8, show_default=True)
 @click.option("--human-approve", is_flag=True, default=False,
               help="pre-approve high-tier actions for this run")
+@click.option("--wait-approval", is_flag=True, default=False,
+              help="with --gateway-url: open queue requests and wait for a human")
+@click.option("--approval-timeout", default=120, show_default=True)
+@click.option("--gateway-url", default=None,
+              help="delegate the whole run to a shared gateway (integrates with console queue)")
 @click.option("--db", default=None, help="SQLite path (default: in-memory demo)")
-def agent_run(task, model, base_url, max_steps, human_approve, db):
+def agent_run(task, model, base_url, max_steps, human_approve, wait_approval,
+              approval_timeout, gateway_url, db):
     """Run a task through model -> PROF permit -> verified execution loop."""
+    from prof.llm import LLMConfig
+    if gateway_url:
+        from prof.client import ClientError, GatewayClient
+        try:
+            out = GatewayClient(gateway_url).agent_run(
+                task, max_steps=max_steps, human_approve=human_approve,
+                wait_approval=wait_approval, approval_timeout_s=approval_timeout)
+        except ClientError as exc:
+            raise click.ClickException(str(exc))
+        for s in out["steps"]:
+            mark = "ALLOW" if s["ok"] else "DENY"
+            click.echo(f"[{mark}] {s['tool']} {s.get('decision', '')}")
+        click.echo(f"--- allowed={out['allowed']} denied={out['denied']} ---")
+        click.echo(out["answer"])
+        return
     from prof.demo_tools import build_demo_gateway
-    from prof.llm import LLMConfig, run_task
+    from prof.llm import run_task
     from prof.resources import crm_lookup, file_write, payment_transfer
     approver, gw = build_demo_gateway(db_path=db)
     cfg = LLMConfig()
@@ -139,6 +160,9 @@ def agent_run(task, model, base_url, max_steps, human_approve, db):
     for s in res.steps:
         mark = "ALLOW" if s["ok"] else "DENY"
         click.echo(f"[{mark}] {s['tool']} {s.get('decision', '')}")
+    gw.ledger.append("agent_run", f"task-{len(gw.ledger.entries)}",
+                     "agent.run", "agent:llm", approver.subject, "agent:llm",
+                     f"allowed={res.allowed} denied={res.denied} answer={res.answer[:160]}")
     click.echo(f"--- allowed={res.allowed} denied={res.denied} ---")
     click.echo(res.answer)
 
