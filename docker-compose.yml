@@ -9,6 +9,7 @@ services:
     environment:
       PROF_LEDGER: /data/ledger.json
       PROF_NONCES: /data/nonces.json
+      PROF_DB: /data/prof.db
     volumes:
       - prof-data:/data
     restart: unless-stopped

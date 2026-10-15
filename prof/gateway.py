@@ -106,12 +106,17 @@ class Gateway:
         return GatewayDecision(False, reason, tier=tier, ledger_seq=seq)
 
     def execute(self, req: ExecuteRequest, effect: EffectFn) -> tuple[GatewayDecision, Optional[Dict[str, Any]]]:
-        """Authorize then run `effect(args)` only on allow. Effect exceptions -> deny result, no ledger allow."""
+        """Authorize then run `effect(args)` only on allow. Effect exceptions -> deny result, no ledger allow.
+
+        The effect receives a copy of args plus `_permit_nonce` so stateful
+        effects (payments ledger, file registry) can bind the outcome to the
+        exact permit. Verification always uses the original, unmodified args.
+        """
         dec = self.authorize(req)
         if not dec.allow:
             return dec, None
         try:
-            result = effect(req.args)
+            result = effect({**req.args, "_permit_nonce": req.permit.nonce})
         except Exception as exc:  # fail-closed, record execution failure
             self.ledger.append("deny", req.permit.nonce, req.action, req.resource,
                                req.permit.subject, req.permit.agent, f"effect failed: {exc}")

@@ -104,6 +104,19 @@ Full design: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · policy: [`docs/PO
 
 Two surfaces: **MCP server** (`prof mcp`, stdio, zero deps — `prof.approve` → tool call with Permit) and **shell gate** (`prof exec`, `prof decide --claude-hook`). Details + mapping table: [`docs/AGENTS.md`](docs/AGENTS.md).
 
+## LLM integration (API-based)
+
+Provider-agnostic agentic loop over any OpenAI-compatible API — every model-requested tool call is approved and executed through the Gateway against the real database:
+
+```sh
+export PROF_LLM_BASE_URL=http://localhost:11434/v1 PROF_LLM_MODEL=llama3.1  # Ollama
+prof llm-check
+prof agent-run "What tier is customer acme-42?"
+prof agent-run "Send 100 to acct-9" --human-approve   # high-tier needs sign-off
+```
+
+Details: [`docs/LLM.md`](docs/LLM.md). Real state behind the tools: [`docs/DATA.md`](docs/DATA.md) (SQLite customers/accounts/payments/file registry, persistent via `PROF_DB`).
+
 ## HTTP Gateway
 ```sh
 curl -s localhost:8091/version
@@ -143,15 +156,16 @@ See [`docs/ROADMAP.md`](docs/ROADMAP.md). Open-core: this repo (MIT) is the comm
 ## Repo layout
 
 ```
-prof/            core (permit/policy/gateway/ledger/store/identity/server/cli/mcp_adapter/console)
+prof/            core (permit/policy/gateway/ledger/store/identity/server/cli/resources/llm/mcpd/console)
 examples/        01_tool_call · 02_file_modify · 03_payment_request · mcp_server · policies/
+integrations/    claude-code · codex · gemini · cursor · opencode · generic + install.sh
 deploy/          k8s.yaml · Caddyfile (TLS edge)
 configs/         prof.env.example (production env template)
 scripts/         backup.sh · restore.sh
 sdk-typescript/  TS Gateway client (beta)
 bench/           local microbenchmark (env-disclosed)
-docs/            ARCHITECTURE · SECURITY_MODEL · VERIFICATION · ROADMAP · MCP · POLICY · COMPARISON · OPERATIONS
-tests/           14 enforcement + API tests
+docs/            ARCHITECTURE · SECURITY_MODEL · VERIFICATION · ROADMAP · MCP · POLICY · COMPARISON · OPERATIONS · AGENTS · LLM · DATA
+tests/           38 enforcement + API + MCP + LLM + data tests
 ```
 
 ## Contributing

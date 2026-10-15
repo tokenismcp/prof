@@ -96,6 +96,53 @@ def verify_ledger(path):
         raise click.ClickException("ledger INVALID")
 
 
+@main.command("llm-check")
+@click.option("--base-url", default=None)
+@click.option("--model", default=None)
+def llm_check(base_url, model):
+    """Verify connectivity to the LLM API (env PROF_LLM_* or flags)."""
+    from prof.llm import LLMConfig, check_connectivity
+    cfg = LLMConfig()
+    if base_url:
+        cfg.base_url = base_url
+    if model:
+        cfg.model = model
+    ok, info = check_connectivity(cfg)
+    click.echo(info)
+    if not ok:
+        raise click.ClickException("LLM unreachable — set PROF_LLM_BASE_URL / PROF_LLM_MODEL")
+
+
+@main.command("agent-run")
+@click.argument("task")
+@click.option("--model", default=None)
+@click.option("--base-url", default=None)
+@click.option("--max-steps", default=8, show_default=True)
+@click.option("--human-approve", is_flag=True, default=False,
+              help="pre-approve high-tier actions for this run")
+@click.option("--db", default=None, help="SQLite path (default: in-memory demo)")
+def agent_run(task, model, base_url, max_steps, human_approve, db):
+    """Run a task through model -> PROF permit -> verified execution loop."""
+    from prof.demo_tools import build_demo_gateway
+    from prof.llm import LLMConfig, run_task
+    from prof.resources import crm_lookup, file_write, payment_transfer
+    approver, gw = build_demo_gateway(db_path=db)
+    cfg = LLMConfig()
+    if base_url:
+        cfg.base_url = base_url
+    if model:
+        cfg.model = model
+    res = run_task(task, approver, gw,
+                   {"crm.lookup": crm_lookup, "file.write": file_write,
+                    "payment.transfer": payment_transfer},
+                   cfg=cfg, max_steps=max_steps, human_approve=human_approve)
+    for s in res.steps:
+        mark = "ALLOW" if s["ok"] else "DENY"
+        click.echo(f"[{mark}] {s['tool']} {s.get('decision', '')}")
+    click.echo(f"--- allowed={res.allowed} denied={res.denied} ---")
+    click.echo(res.answer)
+
+
 @main.command()
 def version():
     from prof import __version__

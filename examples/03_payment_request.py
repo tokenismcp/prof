@@ -1,10 +1,9 @@
 """03 — payment request: high-risk, amount tamper + replay denied."""
 import time
-from prof.demo_tools import build_demo_gateway, payment_transfer, PAYMENTS
+from prof.demo_tools import build_demo_gateway, payment_transfer
 from prof.gateway import ExecuteRequest
 from prof.permit import Permit, hash_args
 
-PAYMENTS.clear()
 approver, gw = build_demo_gateway()
 args = {"to": "acct-7", "amount": 50000, "idempotency_key": "ex-003"}
 permit = Permit(subject=approver.subject, agent="agent:examples:03",

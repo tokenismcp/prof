@@ -1,15 +1,18 @@
-"""Native MCP stdio server example (requires `pip install 'prof[mcp]'`).
+"""PROF MCP stdio server — real launcher (dependency-free).
 
-Exposes PROF-protected tools to MCP clients. Every tool call requires
-a Permit issued via the Gateway (/v1/approve). The server verifies
-server-side — the MCP client/agent is untrusted.
+Exposes PROF-protected tools to any MCP client. Every tool call requires
+a Permit issued via `prof.approve`; the server verifies server-side —
+the MCP client/agent is untrusted.
+
+Run:  python examples/mcp_server.py   (or: prof mcp / prof-mcp)
 """
-# NOTE: kept dependency-optional so core stays light. Wire-up:
-#   from mcp.server.fastmcp import FastMCP
-# See docs/MCP.md for the full walkthrough.
 
-TOOLS = ["crm.lookup", "file.write", "payment.transfer"]
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from prof.mcpd import serve_stdio  # noqa: E402
 
 if __name__ == "__main__":
-    print("PROF MCP tools:", ", ".join(TOOLS))
-    print("See docs/MCP.md — run: pip install 'prof[mcp]' then python examples/mcp_server.py")
+    serve_stdio()

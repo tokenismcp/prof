@@ -53,6 +53,7 @@ spec:
               valueFrom: { secretKeyRef: { name: prof-approver, key: priv } }
             - { name: PROF_LEDGER, value: /data/ledger.json }
             - { name: PROF_NONCES, value: /data/nonces.json }
+            - { name: PROF_DB, value: /data/prof.db }
           volumeMounts: [{ name: data, mountPath: /data }]
           resources:
             requests: { cpu: 100m, memory: 128Mi }

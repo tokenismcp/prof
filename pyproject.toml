@@ -32,7 +32,7 @@ mcp = ["mcp>=1.0"]
 [project.scripts]
 prof = "prof.cli:main"
 prof-gateway = "prof.server:serve"
-prof-mcp = "prof.mcp_adapter:serve"
+prof-mcp = "prof.mcpd:serve_stdio"
 
 [tool.setuptools.packages.find]
 where = ["."]

@@ -23,7 +23,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from prof.demo_tools import crm_lookup, file_write, payment_transfer
+from prof.resources import crm_lookup, file_write, get_db, payment_transfer
 from prof.gateway import ExecuteRequest, Gateway
 from prof.identity import Approver
 from prof.ledger import Ledger
@@ -58,6 +58,9 @@ def _init() -> None:
         ledger=Ledger(os.environ.get("PROF_LEDGER", None)),
         nonces=NonceStore(os.environ.get("PROF_NONCES", None)),
     )
+    # Initialize the persistent resource DB now so seed/migration errors
+    # fail fast at startup instead of on first tool call.
+    get_db()
 
 
 _init()

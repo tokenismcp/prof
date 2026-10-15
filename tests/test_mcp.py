@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import sys
 
@@ -61,12 +62,29 @@ def test_unknown_method():
 
 
 def test_stdio_end_to_end():
-    payload = (
-        '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}\n'
-        '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}\n'
-    )
-    p = subprocess.run([sys.executable, "-m", "prof", "mcp"], input=payload,
-                       capture_output=True, text=True, timeout=30)
+    # Full client-style handshake over real stdio pipes, exactly as an
+    # MCP client performs it: initialize -> notified -> list -> approve -> call.
+    import shutil
+    binary = shutil.which("prof-mcp") or shutil.which("prof")
+    assert binary, "prof-mcp/prof binary missing (run integrations/install.sh)"
+    argv = [binary] if binary.endswith("prof-mcp") else [binary, "mcp"]
+    script = [
+        {"jsonrpc": "2.0", "id": 1, "method": "initialize",
+         "params": {"protocolVersion": "2024-11-05", "capabilities": {},
+                    "clientInfo": {"name": "prof-test", "version": "0"}}},
+        {"jsonrpc": "2.0", "method": "notifications/initialized"},
+        {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+        {"jsonrpc": "2.0", "id": 3, "method": "ping"},
+    ]
+    payload = "\n".join(json.dumps(m) for m in script) + "\n"
+    env = dict(os.environ)
+    env["PYTHONPATH"] = "." + os.pathsep + env.get("PYTHONPATH", "")
+    p = subprocess.run(argv, input=payload, capture_output=True, text=True,
+                       timeout=30, env=env)
     lines = [json.loads(x) for x in p.stdout.strip().splitlines()]
-    assert lines[0]["result"]["serverInfo"]["name"] == "prof"
-    assert any(t["name"] == "prof.approve" for t in lines[1]["result"]["tools"])
+    by_id = {m["id"]: m for m in lines if "id" in m and m["id"] is not None}
+    assert by_id[1]["result"]["serverInfo"]["name"] == "prof"
+    assert any(t["name"] == "prof.approve" for t in by_id[2]["result"]["tools"])
+    assert by_id[3]["result"] == {}
+    # notifications get no response: 3 responses for 4 messages
+    assert len(lines) == 3

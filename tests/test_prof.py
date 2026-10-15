@@ -22,7 +22,7 @@ def test_permit_sign_verify():
 
 def test_allow_legit():
     approver, gw = build_demo_gateway()
-    args = {"customer": "acme"}
+    args = {"customer": "acme-42"}
     p = _permit(approver, gw, "tool.call", "tool:crm.lookup", args)
     dec, res = gw.execute(ExecuteRequest("tool.call", "tool:crm.lookup", args, p), crm_lookup)
     assert dec.allow, dec.reason
@@ -30,16 +30,16 @@ def test_allow_legit():
 
 def test_deny_tamper():
     approver, gw = build_demo_gateway()
-    args = {"customer": "acme"}
+    args = {"customer": "acme-42"}
     p = _permit(approver, gw, "tool.call", "tool:crm.lookup", args)
-    evil = {"customer": "acme", "admin": True}
+    evil = {"customer": "acme-42", "admin": True}
     dec, _ = gw.execute(ExecuteRequest("tool.call", "tool:crm.lookup", evil, p), crm_lookup)
     assert not dec.allow and "args_hash" in dec.reason
 
 
 def test_deny_replay():
     approver, gw = build_demo_gateway()
-    args = {"customer": "acme"}
+    args = {"customer": "acme-42"}
     p = _permit(approver, gw, "tool.call", "tool:crm.lookup", args)
     dec, _ = gw.execute(ExecuteRequest("tool.call", "tool:crm.lookup", args, p), crm_lookup)
     assert dec.allow
@@ -49,7 +49,7 @@ def test_deny_replay():
 
 def test_deny_expiry():
     approver, gw = build_demo_gateway()
-    args = {"customer": "acme"}
+    args = {"customer": "acme-42"}
     p = _permit(approver, gw, "tool.call", "tool:crm.lookup", args, ttl=-1)
     dec, _ = gw.execute(ExecuteRequest("tool.call", "tool:crm.lookup", args, p), crm_lookup)
     assert not dec.allow and "expired" in dec.reason
@@ -65,8 +65,6 @@ def test_deny_scope_escalation():
 
 
 def test_payment_amount_tamper():
-    from prof.demo_tools import PAYMENTS
-    PAYMENTS.clear()
     approver, gw = build_demo_gateway()
     args = {"to": "a", "amount": 100, "idempotency_key": "k1"}
     p = _permit(approver, gw, "payment.transfer", "account:krw-1", args)
@@ -78,7 +76,7 @@ def test_payment_amount_tamper():
 def test_ledger_tamper_evident(tmp_path):
     lp = str(tmp_path / "ledger.json")
     approver, gw = build_demo_gateway(ledger_path=lp)
-    args = {"customer": "acme"}
+    args = {"customer": "acme-42"}
     p = _permit(approver, gw, "tool.call", "tool:crm.lookup", args)
     gw.execute(ExecuteRequest("tool.call", "tool:crm.lookup", args, p), crm_lookup)
     ok, _ = gw.ledger.verify_chain()
@@ -97,7 +95,7 @@ def test_ledger_tamper_evident(tmp_path):
 
 def test_cross_session_reuse_denied():
     approver, gw = build_demo_gateway()
-    args = {"customer": "acme"}
+    args = {"customer": "acme-42"}
     p = _permit(approver, gw, "tool.call", "tool:crm.lookup", args)
     dec, _ = gw.execute(ExecuteRequest("tool.call", "tool:crm.lookup", args, p), crm_lookup)
     assert dec.allow

@@ -7,9 +7,9 @@ Usage:
 The adapter requires a valid Permit for every call. It does NOT trust
 the agent: permits are verified server-side in the Gateway.
 
-A minimal MCP-compatible stdio note: full `mcp` SDK server is in
-`examples/mcp_server.py` (optional dep `mcp`). This module has zero
-extra dependencies so `pip install prof` stays light.
+For the wire protocol, use the dependency-free stdio server in
+`prof/mcpd.py` (`prof mcp` / `prof-mcp`). This module stays import-light
+for embedding PROF enforcement inside your own Python tools.
 """
 
 from __future__ import annotations
@@ -46,8 +46,7 @@ class ProfMCP:
 def serve() -> None:
     """Entry point `prof-mcp` — runs the example MCP bridge (HTTP)."""
     import uvicorn
-    from prof.demo_tools import build_demo_gateway
     from prof.server import app as _app  # noqa
     print("prof-mcp: MCP bridge runs through the PROF Gateway at http://127.0.0.1:8091")
-    print("See examples/mcp_server.py for a native MCP stdio server (pip install 'prof[mcp]').")
+    print("For the MCP stdio server, use `prof mcp` (prof/mcpd.py).")
     uvicorn.run(_app, host="127.0.0.1", port=8091)

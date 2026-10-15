@@ -23,7 +23,8 @@ import time
 import traceback
 from typing import Any, Dict
 
-from prof.demo_tools import build_demo_gateway, crm_lookup, file_write, payment_transfer
+from prof.demo_tools import build_demo_gateway
+from prof.resources import crm_lookup, file_write, payment_transfer
 from prof.gateway import ExecuteRequest
 from prof.permit import Permit, hash_args
 
