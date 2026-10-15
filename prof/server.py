@@ -510,6 +510,45 @@ def _queue_wait_approver(timeout_s: int):
     return _fn
 
 
+@app.post("/mcp")
+async def mcp_http_endpoint(request: Request):
+    """Remote MCP over Streamable HTTP (Dots, Muse, any remote MCP client).
+
+    Stateless JSON-RPC. Bearer PROF_API_TOKEN when configured.
+    Deploy behind public HTTPS (compose --profile edge) and register
+    https://<domain>/mcp as a custom MCP server / connector.
+    """
+    from fastapi.responses import JSONResponse, Response
+    from prof.mcp_http import check_bearer, handle_http
+    if not check_bearer(request.headers.get("authorization", "")):
+        return JSONResponse({"jsonrpc": "2.0", "id": None,
+                             "error": {"code": -32001, "message": "missing or invalid bearer token"}},
+                            status_code=401)
+    try:
+        msg = await request.json()
+    except Exception:
+        return JSONResponse({"jsonrpc": "2.0", "id": None,
+                             "error": {"code": -32700, "message": "parse error"}},
+                            status_code=400)
+    if not isinstance(msg, dict) or "method" not in msg:
+        return JSONResponse({"jsonrpc": "2.0", "id": msg.get("id") if isinstance(msg, dict) else None,
+                             "error": {"code": -32600, "message": "invalid request"}},
+                            status_code=400)
+    status, resp = handle_http(msg)
+    if resp is None:
+        return Response(status_code=status)
+    return JSONResponse(resp, status_code=status)
+
+
+@app.get("/mcp")
+async def mcp_http_get():
+    from fastapi.responses import JSONResponse
+    return JSONResponse({"jsonrpc": "2.0", "id": None,
+                         "error": {"code": -32600,
+                                   "message": "use POST with a JSON-RPC message (stateless Streamable HTTP)"}},
+                        status_code=405)
+
+
 @app.get("/v1/ledger")
 def ledger(limit: int = 100):
     assert _gateway

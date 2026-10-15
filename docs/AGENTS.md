@@ -52,7 +52,32 @@ Copy `integrations/cursor/mcp.json` content into the client's MCP config
 
 Merge `integrations/opencode/opencode.json` `mcp` block into `opencode.json`. Run with `opencode run "use prof.approve, then call the tool"`.
 
-## 6 · Dots & any shell-hook agent (generic)
+## 6 · Dots (OpenAI) — remote MCP app
+
+Dots run in OpenAI's cloud and take tools as **custom MCP apps** (public
+HTTPS, Streamable HTTP, OAuth or pasted key). PROF serves exactly that at
+`POST https://<domain>/mcp`:
+
+```sh
+PROF_DOMAIN=prof.example.com docker compose --profile edge up -d --build
+```
+
+Then ChatGPT web → Settings → Apps → Advanced → Developer mode → Plugins →
+**+** → Create MCP App (`PROF`, `https://<domain>/mcp`, your
+`PROF_API_TOKEN` as key). Map Dots Custom Rules to PROF tiers (take action
+≈ low/medium auto-approve; ask/hand-off ≈ high-tier queue). Full steps,
+verification and limits: `integrations/dots/README.md`. Note: Pro
+workspaces get read/fetch-only custom apps — writes need Business+.
+
+## 7 · Muse (Meta) — custom connector via chat
+
+Muse runs in Meta's cloud and has no MCP settings form: paste a setup
+message in chat with the server name, public HTTPS Streamable-HTTP URL and
+auth, hand the bearer key to its Secure Credentials Store (never the chat),
+test every tool, and save as a skill. A ready-to-paste prompt, approval
+mapping and troubleshooting: `integrations/muse/README.md`.
+
+## 8 · Other shell-hook agents (generic)
 
 ```sh
 export PROF_ACTION=tool.call PROF_RESOURCE='tool:shell' PROF_ARGS='{"cmd":"deploy"}'

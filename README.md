@@ -101,7 +101,9 @@ Full design: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · policy: [`docs/PO
 | Gemini CLI | merge `integrations/gemini/settings-snippet.json` into `~/.gemini/settings.json` |
 | Cursor / Windsurf / Cline / VS Code | `integrations/cursor/mcp.json` |
 | OpenCode | `integrations/opencode/opencode.json` |
-| Dots & others (shell hooks) | `prof exec -- …` / `integrations/generic/prof-gate.sh` |
+| Dots (OpenAI) | remote MCP app: `https://<domain>/mcp` + key (`integrations/dots/`) |
+| Muse (Meta) | chat-built custom connector, copy-paste prompt (`integrations/muse/`) |
+| Others (shell hooks) | `prof exec -- …` / `integrations/generic/prof-gate.sh` |
 
 Two surfaces: **MCP server** (`prof mcp`, stdio, zero deps — transparent for low/medium, human-gated for high-tier) and **shell gate** (`prof exec`, `prof decide --claude-hook`). Details + mapping table: [`docs/AGENTS.md`](docs/AGENTS.md).
 
