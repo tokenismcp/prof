@@ -50,10 +50,9 @@ python -m prof gateway                # HTTP gateway on :8091
 
 `python -m prof gateway`, then open **http://127.0.0.1:8091/** (redirects to the console):
 
-  - *Overview*: allow/deny KPIs, decision-mix donut, activity chart, live events, approver identity (subject, key source, fingerprint) + pending human approvals with one-click sign/deny
+  - *Overview*: allow/deny KPIs, decision-mix donut, activity chart, live events, compact verification checks, approver identity (subject, key source, fingerprint) + pending human approvals with one-click sign/deny
   - *Approve & Execute*: 3-step workflow with permit inspector (expiry countdown, args-hash, nonce) + copy + copy-as-curl + human-approval request with auto-poll
-  - *Verification*: 5 adversarial checks (legit / tamper / replay / expired / scope escalation) with expected-verdict badges
-  - *Agents*: LLM connection status, in-console task runner (model → permit → verified execution), copy-paste MCP/hook snippets
+  - *Agents & LLM*: provider/model selection (7 presets, per-run override or save-to-gateway), connection status, in-browser task runner with wait-for-approval, remote MCP self-test + endpoint URL, per-agent setup panes (Dots/Muse/Claude/Codex/Gemini/Cursor/hook)
   - *Ledger*: filter by event, full-text search, click any row for the hash-linked entry detail, JSON export
   - *Policy*: tier badges, caps, default-deny note
 

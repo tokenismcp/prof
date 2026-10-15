@@ -15,8 +15,7 @@
     <nav class="tabs" id="tabs">
       <button data-tab="overview" class="on">Overview</button>
       <button data-tab="operate">Approve &amp; Execute</button>
-      <button data-tab="verify">Verification</button>
-      <button data-tab="agents">Agents</button>
+      <button data-tab="agents">Agents &amp; LLM</button>
       <button data-tab="ledger">Ledger</button>
       <button data-tab="policy">Policy</button>
     </nav>
@@ -59,6 +58,11 @@
         <div class="legend"><span><i class="sw ok"></i><b id="lg-allow">0</b>&nbsp;allowed</span><span><i class="sw bad"></i><b id="lg-deny">0</b>&nbsp;denied</span></div>
       </div>
     </div>
+    <div class="panel">
+        <div class="phead"><h2>Verification</h2><span class="hint">adversarial checks, gateway-enforced</span></div>
+        <div id="verify-mini"></div>
+        <div class="row" style="margin-top:10px"><button id="btn-run-all" class="primary">Run all checks</button><span class="mut" id="rt-summary"></span></div>
+      </div>
     <div class="grid2">
       <div class="panel">
         <div class="phead"><h2>Live events</h2><label class="switch"><input type="checkbox" id="feed-live" checked /> live</label></div>
@@ -110,13 +114,6 @@
     <div class="panel"><div class="phead"><h2><span class="n">3</span> Result</h2></div><pre class="out big" id="o-execute">—</pre></div>
   </section>
 
-  <!-- VERIFICATION -->
-  <section id="tab-verify" class="tab">
-    <p class="mut wide">Each check requests a real permit and attacks it. Verdicts are enforced by the gateway, not the UI.</p>
-    <div class="scenarios" id="scenarios"></div>
-    <div class="panel"><div class="row"><button id="btn-run-all" class="primary">Run all checks</button><span class="mut" id="rt-summary"></span></div></div>
-  </section>
-
   <!-- AGENTS -->
   <section id="tab-agents" class="tab">
     <div class="grid2">
@@ -129,9 +126,10 @@
           <div><dt>API key</dt><dd id="llm-key">–</dd></div>
         </dl>
         <div class="row2">
+          <label>Provider<select id="llm-prov"><option value="">gateway default</option></select></label>
           <label>Run with model<select id="llm-pick"><option value="">gateway default</option></select></label>
-          <label class="self-end"><span class="row"><button id="btn-llm-check">Check again</button><button id="btn-llm-save">Save to gateway</button></span></label>
         </div>
+        <div class="row" style="margin-top:8px"><span class="row"><button id="btn-llm-check">Check again</button><button id="btn-llm-save">Save to gateway</button></span></div>
         <p class="mut small">Local (Ollama, LM Studio, vLLM) or hosted (OpenAI, Azure, OpenRouter, Anthropic). API keys stay environment-only — the console never accepts or shows them. Saving writes <span class="mono">configs/llm.env</span>; restart the gateway to apply.</p>
       </div>
       <div class="panel">
@@ -195,7 +193,7 @@
 
 <footer class="statusbar">
   <span id="sb-head" class="mono">ledger head …</span><span class="sp"></span>
-  <span class="mut">keys <b>1–6</b> switch views · <b>/</b> ledger search</span>
+  <span class="mut">keys <b>1–5</b> switch views · <b>/</b> ledger search</span>
   <span>·</span><a href="/docs">API docs</a><span>·</span><a href="https://github.com/4chains-inc/prof">GitHub</a>
 </footer>
 

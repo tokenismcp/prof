@@ -122,7 +122,18 @@ pre.out.big{max-height:340px}
 .skel{height:44px;border-radius:10px;background:linear-gradient(90deg,#eceff4 25%,#f6f8fb 50%,#eceff4 75%);background-size:200% 100%;animation:sh 1.2s infinite}
 @keyframes sh{to{background-position:-200% 0}}
 
-/* scenarios */
+/* compact verification rows */
+.vrow{display:flex;align-items:center;gap:10px;padding:7px 2px;border-bottom:1px solid var(--line);font-size:13px}
+.vrow:last-child{border:0}
+.vrow .nm{flex:1}
+.vrow .nm small{display:block;color:var(--mut);font-size:11.5px}
+.vdot{width:9px;height:9px;border-radius:50%;background:#c3ccd9;flex:0 0 auto}
+.vdot.pass{background:var(--ok)} .vdot.fail{background:var(--bad)} .vdot.run{background:var(--acc);animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.35}}
+.vverdict{font-size:11px;font-weight:700;min-width:88px;text-align:right;color:var(--mut)}
+.vverdict.pass{color:var(--ok)} .vverdict.fail{color:var(--bad)}
+
+/* scenarios (legacy full cards, kept for reference) */
 .wide{max-width:100%}
 .scenarios{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;margin-bottom:14px}
 .scn{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--shadow)}

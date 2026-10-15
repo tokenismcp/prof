@@ -111,12 +111,14 @@ class GatewayClient:
 
     def agent_run(self, task: str, max_steps: int = 8, human_approve: bool = False,
                   wait_approval: bool = False, approval_timeout_s: int = 120,
-                  model_override: str = "", base_url_override: str = "") -> dict:
+                  provider_override: str = "", model_override: str = "",
+                  base_url_override: str = "") -> dict:
         return self._call("POST", "/v1/agent/run",
                           {"task": task, "max_steps": max_steps,
                            "human_approve": human_approve,
                            "wait_approval": wait_approval,
                            "approval_timeout_s": approval_timeout_s,
+                           "provider_override": provider_override,
                            "model_override": model_override,
                            "base_url_override": base_url_override})
 

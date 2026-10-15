@@ -172,6 +172,7 @@ class AgentRunIn(BaseModel):
     human_approve: bool = False
     wait_approval: bool = False
     approval_timeout_s: int = 120
+    provider_override: str = ""
     model_override: str = ""
     base_url_override: str = ""
 
@@ -458,6 +459,13 @@ def agent_run(inp: AgentRunIn, _t: None = Depends(require_token)):
     if inp.wait_approval and not inp.human_approve:
         approve_fn = _queue_wait_approver(timeout_s=max(5, min(inp.approval_timeout_s, 600)))
     cfg = LLMConfig()
+    if inp.provider_override:
+        from prof.llm import PROVIDERS
+        if inp.provider_override not in PROVIDERS:
+            raise HTTPException(400, "unknown provider (see /v1/llm/status)")
+        cfg.provider = inp.provider_override
+        if not inp.base_url_override:
+            cfg.base_url = PROVIDERS[inp.provider_override]["base_url"]
     if inp.model_override:
         cfg.model = inp.model_override
     if inp.base_url_override:

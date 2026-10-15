@@ -14,8 +14,7 @@ tabBtns.forEach((b) => (b.onclick = () => goTab(b.dataset.tab)));
 const TITLES = {
   overview: ["Overview", "Live enforcement posture"],
   operate: ["Approve & Execute", "Sign a permit, then execute it — verified server-side"],
-  verify: ["Verification", "Adversarial checks against real permits; the gateway decides"],
-  agents: ["Agents", "LLM tasks and external agent connections, all proof-gated"],
+  agents: ["Agents & LLM", "LLM tasks and external agent connections, all proof-gated"],
   ledger: ["Ledger", "Tamper-evident audit trail, hash-linked"],
   policy: ["Policy", "Risk tiers currently enforced"],
 };
@@ -25,8 +24,8 @@ goTab = function (name) {
   const t = TITLES[name] || [name, ""];
   $("view-title").textContent = t[0]; $("view-sub").textContent = t[1];
 };
-if (["overview","operate","verify","agents","ledger","policy"].includes(location.hash.slice(1))) goTab(location.hash.slice(1));
-if (location.hash === "#redteam") goTab("verify");
+if (["overview","operate","agents","ledger","policy"].includes(location.hash.slice(1))) goTab(location.hash.slice(1));
+if (location.hash === "#verify" || location.hash === "#redteam") goTab("overview");
 
 /* ---------- api + toast ---------- */
 function apiToken() { try { return sessionStorage.getItem("prof_token") || ""; } catch { return ""; } }
@@ -223,22 +222,29 @@ $("btn-execute").onclick = async () => {
   refresh();
 };
 
-/* ---------- red team ---------- */
+/* ---------- verification (compact rows on Overview) ---------- */
 const SCEN = [
-  { id:"legit",  name:"Legit request",   desc:"Approved args executed exactly. Expect ALLOW.", attack:"allow" },
-  { id:"tamper", name:"Args tamper",     desc:"Swap args after approval (privilege/amount). Expect DENY.", attack:"deny" },
-  { id:"replay", name:"Replay permit",   desc:"Reuse the same single-use permit. Expect DENY.", attack:"deny" },
-  { id:"expired",name:"Expired permit",  desc:"Approve with negative TTL, then execute. Expect DENY.", attack:"deny" },
-  { id:"scope",  name:"Scope escalation",desc:"Approved /tmp/** executed against /etc/**. Expect DENY.", attack:"deny" },
+  { id:"legit",  name:"Legit request",   desc:"Approved args executed exactly. Expect ALLOW." },
+  { id:"tamper", name:"Args tamper",     desc:"Swap args after approval. Expect DENY." },
+  { id:"replay", name:"Replay permit",   desc:"Reuse the single-use permit. Expect DENY." },
+  { id:"expired",name:"Expired permit",  desc:"Approve with negative TTL. Expect DENY." },
+  { id:"scope",  name:"Scope escalation",desc:"/tmp/** permit used on /etc/**. Expect DENY." },
 ];
-$("scenarios").innerHTML = SCEN.map((s) =>
-  `<div class="scn"><h3>${s.name}</h3><p>${s.desc}</p><div class="verdict" id="v-${s.id}">not run</div><button data-s="${s.id}">Run</button></div>`).join("");
-document.querySelectorAll("#scenarios button").forEach((b) => (b.onclick = () => runScen(b.dataset.s)));
+$("verify-mini").innerHTML = SCEN.map((s) =>
+  `<div class="vrow" data-s="${s.id}" style="cursor:pointer" title="Run this check">` +
+  `<span class="vdot" id="vd-${s.id}"></span>` +
+  `<span class="nm">${s.name}<small>${s.desc}</small></span>` +
+  `<span class="vverdict" id="v-${s.id}">not run</span></div>`).join("");
+document.querySelectorAll("#verify-mini .vrow").forEach((r) => (r.onclick = () => runScen(r.dataset.s)));
 async function runScen(id) {
-  const el = $("v-" + id); el.className = "verdict run"; el.textContent = "running…";
+  const el = $("v-" + id), dot = $("vd-" + id);
+  el.className = "vverdict"; el.textContent = "running…"; dot.className = "vdot run";
   const A = { agent: "agent:redteam", action: "tool.call", resource: "tool:crm.lookup", args: { customer: "acme-42" } };
   const ap = await jpost("/v1/approve", { ...A, ttl_s: id === "expired" ? -5 : 300 });
-  if (ap.status !== 200) { el.className = "verdict fail"; el.textContent = "setup failed"; return false; }
+  if (ap.status !== 200) {
+    el.className = "vverdict fail"; el.textContent = "setup failed"; dot.className = "vdot fail";
+    return false;
+  }
   const permit = ap.body; let ex;
   if (id === "legit") ex = await jpost("/v1/execute", { ...A, permit });
   else if (id === "tamper") ex = await jpost("/v1/execute", { action:A.action, resource:A.resource, args:{customer:"acme-42",admin:true}, permit });
@@ -247,8 +253,9 @@ async function runScen(id) {
   else ex = await jpost("/v1/execute", { action:"file.write", resource:"file:/etc/**", args:{path:"/etc/pwn",content:"x"}, permit });
   const want = id === "legit";
   const pass = !!ex.body.ok === want;
-  el.className = "verdict " + (pass ? "pass" : "fail");
+  el.className = "vverdict " + (pass ? "pass" : "fail");
   el.textContent = (pass ? "✓ " : "✕ ") + (ex.body.ok ? "ALLOWED" : "DENIED");
+  dot.className = "vdot " + (pass ? "pass" : "fail");
   refresh(); return pass;
 }
 $("btn-run-all").onclick = async () => {
@@ -343,16 +350,23 @@ async function loadLLM(quiet) {
     pick.innerHTML = '<option value="">gateway default</option>' +
       (s.models || []).map((m) => `<option>${esc(m)}</option>`).join("");
     if ([...pick.options].some((o) => o.value === cur)) pick.value = cur;
+    const prov = $("llm-prov"), pcur = prov.value;
+    prov.innerHTML = '<option value="">gateway default</option>' +
+      Object.keys(s.providers || {}).map((p) => `<option>${esc(p)}</option>`).join("");
+    if ([...prov.options].some((o) => o.value === pcur)) prov.value = pcur;
+    if (!prov.value && s.provider) prov.value = [...prov.options].some((o) => o.value === s.provider) ? s.provider : "";
     if (!s.reachable && !quiet) toast("err", "LLM unreachable", (s.info || "").slice(0, 160));
   } catch { const el = $("llm-state"); el.textContent = "unreachable"; el.classList.add("bad"); }
 }
 $("btn-llm-check").onclick = () => loadLLM(false);
 $("btn-llm-save").onclick = async () => {
-  const model = $("llm-pick").value;
-  if (!model) { toast("err", "Nothing to save", "pick a model first"); return; }
-  const { status, body } = await jpost("/v1/llm/config", { model });
-  if (status !== 200) { toast("err", "Save failed", JSON.stringify(body).slice(0, 160)); return; }
-  toast("ok", "Saved — restart gateway to apply", body.saved || "");
+  const body = {};
+  if ($("llm-prov").value) body.provider = $("llm-prov").value;
+  if ($("llm-pick").value) body.model = $("llm-pick").value;
+  if (!body.provider && !body.model) { toast("err", "Nothing to save", "pick a provider or model first"); return; }
+  const res = await jpost("/v1/llm/config", body);
+  if (res.status !== 200) { toast("err", "Save failed", JSON.stringify(res.body).slice(0, 160)); return; }
+  toast("ok", "Saved — restart gateway to apply", res.body.saved || "");
 };
 $("btn-agent-run").onclick = async () => {
   const task = $("agent-task").value.trim();
@@ -361,7 +375,8 @@ $("btn-agent-run").onclick = async () => {
   $("agent-summary").textContent = "";
   const { status, body } = await jpost("/v1/agent/run", { task, max_steps: 8,
     human_approve: $("agent-human").checked, wait_approval: $("agent-wait").checked,
-    approval_timeout_s: 120, model_override: $("llm-pick").value || "" });
+    approval_timeout_s: 120, provider_override: $("llm-prov").value || "",
+    model_override: $("llm-pick").value || "" });
   if (status !== 200) {
     show("o-agent", `HTTP ${status}\n` + JSON.stringify(body, null, 2));
     toast("err", "Agent run failed", (body.detail || "").slice(0, 160));
@@ -467,8 +482,8 @@ async function loadPolicy() {
 /* ---------- boot (single) ---------- */
 document.addEventListener("keydown", (e) => {
   if (e.target.matches("input,textarea,select")) return;
-  const tabs = ["overview", "operate", "verify", "agents", "ledger", "policy"];
-  if (e.key >= "1" && e.key <= "6") goTab(tabs[+e.key - 1]);
+  const tabs = ["overview", "operate", "agents", "ledger", "policy"];
+  if (e.key >= "1" && e.key <= "5") goTab(tabs[+e.key - 1]);
   if (e.key === "/") { e.preventDefault(); goTab("ledger"); setTimeout(() => $("ledger-q").focus(), 50); }
 });
 /* ---------- boot ---------- */

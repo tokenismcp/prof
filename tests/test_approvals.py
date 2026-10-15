@@ -101,3 +101,16 @@ def test_agent_run_no_llm_fails_closed(monkeypatch):
     c = _client()
     r = c.post("/v1/agent/run", json={"task": "hi", "max_steps": 2})
     assert r.status_code == 502  # LLM transport error, not a crash
+
+
+def test_agent_run_provider_override_validated(monkeypatch):
+    monkeypatch.setenv("PROF_LLM_BASE_URL", "http://127.0.0.1:9/v1")
+    monkeypatch.setenv("PROF_LLM_PROVIDER", "ollama")
+    c = _client()
+    r = c.post("/v1/agent/run", json={"task": "hi", "max_steps": 1,
+                                      "provider_override": "nope"})
+    assert r.status_code == 400
+    r = c.post("/v1/agent/run", json={"task": "hi", "max_steps": 1,
+                                      "provider_override": "ollama",
+                                      "base_url_override": "http://127.0.0.1:9/v1"})
+    assert r.status_code == 502  # override applied (dead port), fail-closed
