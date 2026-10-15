@@ -50,9 +50,10 @@ python -m prof gateway                # HTTP gateway on :8091
 
 `python -m prof gateway`, then open **http://127.0.0.1:8091/** (redirects to the console):
 
-  - *Overview*: allow/deny KPIs, decision-mix donut, activity chart, live events, approver identity (subject, key source, fingerprint)
-  - *Approve & Execute*: 3-step workflow with permit inspector (expiry countdown, args-hash, nonce) + copy + copy-as-curl
+  - *Overview*: allow/deny KPIs, decision-mix donut, activity chart, live events, approver identity (subject, key source, fingerprint) + pending human approvals with one-click sign/deny
+  - *Approve & Execute*: 3-step workflow with permit inspector (expiry countdown, args-hash, nonce) + copy + copy-as-curl + human-approval request with auto-poll
   - *Verification*: 5 adversarial checks (legit / tamper / replay / expired / scope escalation) with expected-verdict badges
+  - *Agents*: LLM connection status, in-console task runner (model → permit → verified execution), copy-paste MCP/hook snippets
   - *Ledger*: filter by event, full-text search, click any row for the hash-linked entry detail, JSON export
   - *Policy*: tier badges, caps, default-deny note
 
@@ -103,6 +104,21 @@ Full design: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · policy: [`docs/PO
 | Dots & others (shell hooks) | `prof exec -- …` / `integrations/generic/prof-gate.sh` |
 
 Two surfaces: **MCP server** (`prof mcp`, stdio, zero deps — `prof.approve` → tool call with Permit) and **shell gate** (`prof exec`, `prof decide --claude-hook`). Details + mapping table: [`docs/AGENTS.md`](docs/AGENTS.md).
+
+## Human approvals (high-tier workflow)
+
+High-risk actions don't self-approve — they open a request a human signs in the console (Overview → Approver → pending) or via API:
+
+```sh
+curl -s -X POST localhost:8091/v1/requests -H 'content-type: application/json' \
+  -d '{"agent":"agent:llm","action":"payment.transfer","resource":"account:krw-1",
+       "args":{"to":"acct-9","amount":100,"idempotency_key":"q-1"}}'
+# → {"id":"req-…","status":"pending",…}
+curl -s -X POST localhost:8091/v1/requests/req-…/approve   # human signs → permit
+curl -s -X POST localhost:8091/v1/requests/req-…/deny -d '{"reason":"…"}'
+```
+
+Query `GET /v1/requests?status=pending|all`. Every transition is ledger-logged. The Operate tab's "Request human approval" polls until decided and loads the signed permit automatically.
 
 ## LLM integration (API-based)
 

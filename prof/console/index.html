@@ -16,6 +16,7 @@
       <button data-tab="overview" class="on">Overview</button>
       <button data-tab="operate">Approve &amp; Execute</button>
       <button data-tab="verify">Verification</button>
+      <button data-tab="agents">Agents</button>
       <button data-tab="ledger">Ledger</button>
       <button data-tab="policy">Policy</button>
     </nav>
@@ -70,6 +71,8 @@
           <div><dt>Public key</dt><dd class="mono small" id="ap-pubkey">–</dd></div>
         </dl>
         <p class="mut small">Permits are Ed25519-signed by this approver. Production deployments load the key from a secret manager or HSM; it never leaves the signer.</p>
+        <div class="phead" style="margin-top:14px"><h2>Pending human approvals</h2><span class="hint" id="pend-count"></span></div>
+        <ul class="feed" id="pend-list"><li class="mut">none pending</li></ul>
       </div>
     </div>
   </section>
@@ -100,6 +103,7 @@
         </div>
         <label>Args (JSON)<textarea id="e-args" rows="4">{"customer": "acme-42"}</textarea></label>
         <div class="row"><button id="btn-execute" class="primary">Execute with proof</button><button id="btn-copy-permit">Copy permit</button><button id="btn-copy-curl">Copy as curl</button></div>
+        <div class="row" style="margin-top:8px"><button id="btn-request">Request human approval</button><span class="hint" id="req-status">for high-tier actions — polls until decided</span></div>
       </div>
     </div>
     <div class="panel"><div class="phead"><h2><span class="n">3</span> Result</h2></div><pre class="out big" id="o-execute">—</pre></div>
@@ -110,6 +114,36 @@
     <p class="mut wide">Each check requests a real permit and attacks it. Verdicts are enforced by the gateway, not the UI.</p>
     <div class="scenarios" id="scenarios"></div>
     <div class="panel"><div class="row"><button id="btn-run-all" class="primary">Run all checks</button><span class="mut" id="rt-summary"></span></div></div>
+  </section>
+
+  <!-- AGENTS -->
+  <section id="tab-agents" class="tab">
+    <div class="grid2">
+      <div class="panel">
+        <div class="phead"><h2>LLM connection</h2><span class="pillok" id="llm-state">checking…</span></div>
+        <dl class="kv">
+          <div><dt>Endpoint</dt><dd class="mono small" id="llm-url">–</dd></div>
+          <div><dt>Model</dt><dd class="mono" id="llm-model">–</dd></div>
+        </dl>
+        <div class="row"><button id="btn-llm-check">Check again</button></div>
+        <p class="mut small">Any OpenAI-compatible API: Ollama, vLLM, OpenAI, Azure. Set <span class="mono">PROF_LLM_BASE_URL</span>, <span class="mono">PROF_LLM_MODEL</span>, <span class="mono">PROF_LLM_API_KEY</span> on the gateway.</p>
+      </div>
+      <div class="panel">
+        <div class="phead"><h2>Run a task</h2><span class="hint">model → permit → verified execution</span></div>
+        <label>Task<textarea id="agent-task" rows="3">What tier is customer acme-42?</textarea></label>
+        <div class="row"><label class="switch"><input type="checkbox" id="agent-human" /> pre-approve high-tier for this run</label></div>
+        <div class="row" style="margin-top:8px"><button id="btn-agent-run" class="primary">Run with proof</button></div>
+      </div>
+    </div>
+    <div class="panel"><div class="phead"><h2>Result</h2><span class="hint" id="agent-summary"></span></div><pre class="out big" id="o-agent">—</pre></div>
+    <div class="panel">
+      <div class="phead"><h2>Connect an external agent</h2></div>
+      <div class="row2">
+        <div><label>MCP server (Claude Code, Codex, Gemini, Cursor, OpenCode)<textarea id="snip-mcp" rows="3" readonly></textarea></label><div class="row"><button id="btn-copy-mcp">Copy</button></div></div>
+        <div><label>Shell gate (Dots and others)<textarea id="snip-hook" rows="3" readonly>PROF_ACTION=tool.call PROF_RESOURCE='tool:shell' PROF_ARGS='{"cmd":"deploy"}' sh integrations/generic/prof-gate.sh</textarea></label><div class="row"><button id="btn-copy-hook">Copy</button></div></div>
+      </div>
+      <p class="mut small">Full per-agent setup: <span class="mono">docs/AGENTS.md</span>. Run <span class="mono">sh integrations/install.sh</span> first — it prints MCP JSON with your absolute binary path.</p>
+    </div>
   </section>
 
   <!-- LEDGER -->
@@ -146,7 +180,7 @@
 
 <footer class="statusbar">
   <span id="sb-head" class="mono">ledger head …</span><span class="sp"></span>
-  <span class="mut">keys <b>1–5</b> switch views · <b>/</b> ledger search</span>
+  <span class="mut">keys <b>1–6</b> switch views · <b>/</b> ledger search</span>
   <span>·</span><a href="/docs">API docs</a><span>·</span><a href="https://github.com/4chains-inc/prof">GitHub</a>
 </footer>
 

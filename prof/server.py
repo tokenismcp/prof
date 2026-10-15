@@ -82,6 +82,35 @@ class ExecuteIn(BaseModel):
     permit: Dict[str, Any]
 
 
+class RequestIn(BaseModel):
+    agent: str
+    action: str
+    resource: str
+    args: Dict[str, Any] = {}
+    ttl_s: int = 300
+
+
+class DenyIn(BaseModel):
+    reason: str = "denied by approver"
+
+
+class AgentRunIn(BaseModel):
+    task: str
+    max_steps: int = 8
+    human_approve: bool = False
+
+
+# In-process human-approval queue. Lost on restart by design in v0.1
+# (every queue transition is ledger-logged, so nothing is silent);
+# a persistent queue is on the Beta roadmap.
+_REQUESTS: Dict[str, Dict[str, Any]] = {}
+
+
+def _new_request_id() -> str:
+    import secrets
+    return "req-" + secrets.token_hex(6)
+
+
 EFFECTS = {
     ("tool.call", "tool:crm.lookup"): crm_lookup,
     ("file.write", "file:/tmp/**"): file_write,
@@ -168,7 +197,7 @@ def execute(inp: ExecuteIn):
         raise HTTPException(400, f"bad permit: {exc}")
     req = ExecuteRequest(action=inp.action, resource=inp.resource, args=inp.args, permit=permit)
     try:
-        fn = _effect(inp.action, inp.resource if inp.resource in [k[1] for k in EFFECTS] else inp.action and _match_effect(inp.action, inp.resource))
+        fn = _match_effect(inp.action, inp.resource)
     except PermissionError as exc:
         d = _gateway._deny(req, f"deny: {exc}")
         return {"ok": False, "decision": d.reason}
@@ -185,6 +214,106 @@ def _match_effect(action: str, resource: str):
             if _fn.fnmatchcase(resource, r) or resource == r:
                 return fn
     return _effect(action, resource)
+
+
+# ---- human approval queue (high-tier workflow) ----
+@app.post("/v1/requests")
+def create_request(inp: RequestIn):
+    assert _approver and _gateway
+    dec = _gateway.policy.evaluate(inp.action, inp.resource, inp.args)
+    if not dec.allow:
+        raise HTTPException(403, f"policy deny: {dec.reason}")
+    if not dec.require_human:
+        raise HTTPException(400, "not a high-tier action: use POST /v1/approve directly")
+    rid = _new_request_id()
+    _REQUESTS[rid] = {"id": rid, "status": "pending", "agent": inp.agent,
+                      "action": inp.action, "resource": inp.resource,
+                      "args": inp.args, "ttl_s": int(inp.ttl_s),
+                      "tier": dec.tier, "policy_reason": dec.reason,
+                      "created_ts": int(time.time()), "decided_ts": None,
+                      "permit": None, "deny_reason": None}
+    _gateway.ledger.append("request", rid, inp.action, inp.resource,
+                           _approver.subject, inp.agent, f"tier={dec.tier} pending human")
+    return _REQUESTS[rid]
+
+
+@app.get("/v1/requests")
+def list_requests(status: str = "pending"):
+    assert _gateway
+    items = [r for r in _REQUESTS.values() if status == "all" or r["status"] == status]
+    return {"requests": sorted(items, key=lambda r: r["created_ts"], reverse=True)}
+
+
+@app.get("/v1/requests/{rid}")
+def get_request(rid: str):
+    if rid not in _REQUESTS:
+        raise HTTPException(404, f"unknown request: {rid}")
+    return _REQUESTS[rid]
+
+
+@app.post("/v1/requests/{rid}/approve")
+def approve_request(rid: str):
+    assert _approver and _gateway
+    req = _REQUESTS.get(rid)
+    if req is None:
+        raise HTTPException(404, f"unknown request: {rid}")
+    if req["status"] != "pending":
+        raise HTTPException(409, f"already {req['status']}")
+    p = Permit(subject=_approver.subject, agent=req["agent"], action=req["action"],
+               resource=req["resource"], args_hash=hash_args(req["args"]),
+               policy_id=_gateway.policy.policy_id,
+               expiry=int(time.time()) + req["ttl_s"],
+               constraints={"approved_by": "human", "request_id": rid})
+    p.sign(_approver._sk)
+    req["status"] = "approved"
+    req["decided_ts"] = int(time.time())
+    req["permit"] = p.to_dict()
+    _gateway.ledger.append("approve", p.nonce, p.action, p.resource,
+                           p.subject, p.agent, f"human-approved {rid}")
+    return req
+
+
+@app.post("/v1/requests/{rid}/deny")
+def deny_request(rid: str, inp: DenyIn):
+    assert _gateway
+    req = _REQUESTS.get(rid)
+    if req is None:
+        raise HTTPException(404, f"unknown request: {rid}")
+    if req["status"] != "pending":
+        raise HTTPException(409, f"already {req['status']}")
+    req["status"] = "denied"
+    req["decided_ts"] = int(time.time())
+    req["deny_reason"] = inp.reason
+    _gateway.ledger.append("deny", rid, req["action"], req["resource"],
+                           req["agent"], req["agent"], f"human-denied {rid}: {inp.reason}")
+    return req
+
+
+# ---- LLM agent surface ----
+@app.get("/v1/llm/status")
+def llm_status():
+    from prof.llm import LLMConfig, check_connectivity
+    cfg = LLMConfig()
+    ok, info = check_connectivity(cfg)
+    return {"configured": True, "reachable": ok, "info": info,
+            "model": cfg.model, "base_url": cfg.base_url}
+
+
+@app.post("/v1/agent/run")
+def agent_run(inp: AgentRunIn):
+    assert _approver and _gateway
+    from prof.llm import LLMConfig, LLMError, run_task
+    from prof.resources import crm_lookup, file_write, payment_transfer
+    try:
+        res = run_task(inp.task, _approver, _gateway,
+                       {"crm.lookup": crm_lookup, "file.write": file_write,
+                        "payment.transfer": payment_transfer},
+                       cfg=LLMConfig(), max_steps=max(1, min(inp.max_steps, 12)),
+                       human_approve=inp.human_approve)
+    except LLMError as exc:
+        raise HTTPException(502, str(exc))
+    return {"answer": res.answer, "steps": res.steps,
+            "allowed": res.allowed, "denied": res.denied}
 
 
 @app.get("/v1/ledger")

@@ -15,6 +15,7 @@ const TITLES = {
   overview: ["Overview", "Live enforcement posture"],
   operate: ["Approve & Execute", "Sign a permit, then execute it — verified server-side"],
   verify: ["Verification", "Adversarial checks against real permits; the gateway decides"],
+  agents: ["Agents", "LLM tasks and external agent connections, all proof-gated"],
   ledger: ["Ledger", "Tamper-evident audit trail, hash-linked"],
   policy: ["Policy", "Risk tiers currently enforced"],
 };
@@ -24,7 +25,7 @@ goTab = function (name) {
   const t = TITLES[name] || [name, ""];
   $("view-title").textContent = t[0]; $("view-sub").textContent = t[1];
 };
-if (["overview","operate","verify","ledger","policy"].includes(location.hash.slice(1))) goTab(location.hash.slice(1));
+if (["overview","operate","verify","agents","ledger","policy"].includes(location.hash.slice(1))) goTab(location.hash.slice(1));
 if (location.hash === "#redteam") goTab("verify");
 
 /* ---------- api + toast ---------- */
@@ -239,7 +240,98 @@ $("btn-export").onclick = () => {
   toast("ok", "Exported", `${lastEntries.length} ledger entries downloaded`);
 };
 
-/* ---------- ledger ---------- */
+/* ---------- human approval queue ---------- */
+async function loadPending() {
+  try {
+    const r = await jget("/v1/requests?status=pending");
+    const items = r.requests || [];
+    $("pend-count").textContent = items.length ? `${items.length} waiting` : "";
+    $("pend-list").innerHTML = items.length ? items.slice(0, 5).map((q) =>
+      `<li><span class="ev ev-request">request</span>` +
+      `<span style="flex:1"><b>${esc(q.action)}</b> · ${esc(q.resource)}<br>` +
+      `<span class="mut">${esc(q.agent)} · ${esc(JSON.stringify(q.args)).slice(0, 90)}</span></span>` +
+      `<button data-ap="${q.id}">Approve</button><button data-dn="${q.id}">Deny</button></li>`
+    ).join("") : '<li class="mut">none pending</li>';
+    document.querySelectorAll("#pend-list [data-ap]").forEach((b) => (b.onclick = () => decideRequest(b.dataset.ap, true)));
+    document.querySelectorAll("#pend-list [data-dn]").forEach((b) => (b.onclick = () => decideRequest(b.dataset.dn, false)));
+  } catch { /* offline */ }
+}
+async function decideRequest(rid, approve) {
+  const url = `/v1/requests/${rid}/${approve ? "approve" : "deny"}`;
+  const { status, body } = await jpost(url, approve ? {} : { reason: "denied in console" });
+  if (status === 200) {
+    toast(approve ? "ok" : "err", approve ? "Approved & signed" : "Denied", rid);
+    if (approve && body.permit) { lastPermit = body.permit; }
+  } else {
+    toast("err", "Decision failed", JSON.stringify(body).slice(0, 160));
+  }
+  loadPending(); refresh();
+}
+let reqTimer = null;
+$("btn-request").onclick = async () => {
+  let args; try { args = JSON.parse($("a-args").value); } catch { toast("err", "Bad JSON", "fix Args JSON"); return; }
+  const { status, body } = await jpost("/v1/requests", { agent: $("a-agent").value, action: $("a-action").value,
+    resource: $("a-resource").value, args, ttl_s: +$("a-ttl").value || 300 });
+  if (status !== 200) {
+    $("req-status").textContent = (body.detail || JSON.stringify(body)).slice(0, 140);
+    toast("err", "Request rejected", $("req-status").textContent);
+    return;
+  }
+  const rid = body.id;
+  $("req-status").textContent = `${rid} pending — waiting for approver…`;
+  loadPending();
+  clearInterval(reqTimer);
+  reqTimer = setInterval(async () => {
+    try {
+      const q = await jget(`/v1/requests/${rid}`);
+      if (q.status === "approved" && q.permit) {
+        clearInterval(reqTimer);
+        $("e-permit").value = JSON.stringify(q.permit, null, 2); permitInfo();
+        $("req-status").textContent = `${rid} approved — permit loaded below.`;
+        toast("ok", "Human approved", rid);
+        refresh();
+      } else if (q.status === "denied") {
+        clearInterval(reqTimer);
+        $("req-status").textContent = `${rid} denied: ${q.deny_reason || ""}`;
+        toast("err", "Human denied", rid);
+      }
+    } catch { clearInterval(reqTimer); }
+  }, 2000);
+};
+
+/* ---------- agents: LLM + external connections ---------- */
+async function loadLLM() {
+  try {
+    const s = await jget("/v1/llm/status");
+    $("llm-url").textContent = s.base_url || "–";
+    $("llm-model").textContent = s.model || "–";
+    const el = $("llm-state");
+    el.textContent = s.reachable ? "reachable" : "unreachable";
+    el.classList.toggle("bad", !s.reachable);
+    if (!s.reachable) toast("err", "LLM unreachable", (s.info || "").slice(0, 160));
+  } catch { const el = $("llm-state"); el.textContent = "unreachable"; el.classList.add("bad"); }
+}
+$("btn-llm-check").onclick = loadLLM;
+$("btn-agent-run").onclick = async () => {
+  const task = $("agent-task").value.trim();
+  if (!task) { toast("err", "Empty task", "describe what the agent should do"); return; }
+  show("o-agent", "running model → permit → execution loop…");
+  $("agent-summary").textContent = "";
+  const { status, body } = await jpost("/v1/agent/run", { task, max_steps: 8, human_approve: $("agent-human").checked });
+  if (status !== 200) {
+    show("o-agent", `HTTP ${status}\n` + JSON.stringify(body, null, 2));
+    toast("err", "Agent run failed", (body.detail || "").slice(0, 160));
+    return;
+  }
+  $("agent-summary").textContent = `allowed ${body.allowed} · denied ${body.denied}`;
+  show("o-agent", `ANSWER: ${body.answer}\n\n` + body.steps.map((s) =>
+    `[${s.ok ? "ALLOW" : "DENY"}] ${s.tool} — ${s.decision || ""}${s.ledger_seq !== undefined ? ` (ledger #${s.ledger_seq})` : ""}`).join("\n"));
+  toast(body.denied && !body.allowed ? "err" : "ok", "Agent run finished", `allowed ${body.allowed}, denied ${body.denied}`);
+  refresh();
+};
+$("snip-mcp").value = '{\n  "mcpServers": {\n    "prof": { "command": "prof", "args": ["mcp"] }\n  }\n}';
+$("btn-copy-mcp").onclick = () => copyText($("snip-mcp").value, "MCP JSON copied — use install.sh for your absolute path");
+$("btn-copy-hook").onclick = () => copyText($("snip-hook").value, "hook command copied");
 document.querySelectorAll("#ledger-filter button").forEach((b) => (b.onclick = () => {
   document.querySelectorAll("#ledger-filter button").forEach((x) => x.classList.remove("on"));
   b.classList.add("on"); ledgerFilter = b.dataset.f; renderLedgerRows();
@@ -285,15 +377,18 @@ async function loadPolicy() {
   } catch (e) { /* offline */ }
 }
 
-/* ---------- boot ---------- */
+/* ---------- boot (single) ---------- */
 document.addEventListener("keydown", (e) => {
   if (e.target.matches("input,textarea,select")) return;
-  const tabs = ["overview", "operate", "verify", "ledger", "policy"];
-  if (e.key >= "1" && e.key <= "5") goTab(tabs[+e.key - 1]);
+  const tabs = ["overview", "operate", "verify", "agents", "ledger", "policy"];
+  if (e.key >= "1" && e.key <= "6") goTab(tabs[+e.key - 1]);
   if (e.key === "/") { e.preventDefault(); goTab("ledger"); setTimeout(() => $("ledger-q").focus(), 50); }
 });
+/* ---------- boot ---------- */
 window.addEventListener("resize", () => areaHist.length && area(areaHist[areaHist.length - 1]));
 loadPolicy();
+loadPending();
+loadLLM();
 refresh();
-setInterval(() => { if (!document.hidden) refresh(); }, 4000);
+setInterval(() => { if (!document.hidden) { refresh(); loadPending(); } }, 4000);
 setInterval(loadPolicy, 30000);

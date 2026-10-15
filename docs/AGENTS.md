@@ -61,6 +61,23 @@ sh integrations/generic/prof-gate.sh   # exit 0 allow / 2 block
 prof exec --action tool.call --resource tool:shell --args '{"cmd":"deploy"}' -- ./deploy.sh
 ```
 
+## 7 · LLM tasks (API-based, in console or CLI)
+
+Any OpenAI-compatible API (`PROF_LLM_BASE_URL`, `PROF_LLM_MODEL`, `PROF_LLM_API_KEY`).
+Console: **Agents** tab shows connection status, runs tasks (model → permit →
+verified execution with per-step ledger refs), and offers copy-paste snippets.
+CLI: `prof llm-check`, `prof agent-run "task" [--human-approve]`.
+API: `GET /v1/llm/status`, `POST /v1/agent/run`. Full loop spec: `docs/LLM.md`.
+
+## 8 · Human approval queue (high-tier workflow)
+
+High-risk actions can't self-approve. They open a request (`POST /v1/requests`)
+that a human signs (`POST /v1/requests/{id}/approve`) or rejects (`.../deny`)
+in the console Approver panel or via API. The issued permit carries
+`constraints.approved_by=human` + request id, and every transition is
+ledger-logged. Operate-tab "Request human approval" polls until decided and
+loads the signed permit automatically.
+
 ## Tool → PROF mapping (hooks)
 
 | Agent tool | PROF action / resource | Tier |
