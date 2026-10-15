@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./logo.png" alt="PROF — Think Freely. Act With Proof." width="480" />
+  <img src="./logo-white.png" alt="PROF — Think Freely. Act With Proof." width="480" />
 </p>
 
 <h1 align="center">PROF — Proof-Required Operation Framework</h1>
@@ -46,13 +46,11 @@ python examples/03_payment_request.py # payment + replay-deny
 python -m prof gateway                # HTTP gateway on :8091
 ```
 
-## Console dashboard & product page
+## Console dashboard
 
-`python -m prof gateway`, then:
+`python -m prof gateway`, then open **http://127.0.0.1:8091/** (redirects to the console):
 
-- **http://127.0.0.1:8091/** — product landing (hero, quickstart, risk tiers, roadmap)
-- **http://127.0.0.1:8091/console/** — operations console:
-  - *Overview*: allow/deny KPIs, decision-mix donut, activity sparkline, live event feed, one-click full demo
+  - *Overview*: allow/deny KPIs, decision-mix donut, activity chart, live event feed, one-click full demo
   - *Approve & Execute*: 3-step workflow with permit inspector (expiry countdown, args-hash, nonce) + copy
   - *Red Team*: 5 scenarios (legit / tamper / replay / expired / scope escalation) with expected-verdict badges
   - *Ledger*: filter by event, full-text search, click any row for the hash-linked entry detail
@@ -87,9 +85,9 @@ Allow  = VerifyProof ∧ Match ∧ PolicyAllow ∧ Fresh(nonce) ∧ NotExpired
 
 | Tier | Examples | Behavior |
 |---|---|---|
-| 🟢 low | `tool:crm.lookup`, `file.read` | pre-delegated scope, auto-approvable |
-| 🟡 medium | `tool:*`, `file:/tmp/**`, `message.send` | constrained token (limits, expiry, prefix) |
-| 🔴 high | `payment.*`, `db.*`, `system.*` | explicit human approval, amount caps |
+| low | `tool:crm.lookup`, `file.read` | pre-delegated scope, auto-approvable |
+| medium | `tool:*`, `file:/tmp/**`, `message.send` | constrained token (limits, expiry, prefix) |
+| high | `payment.*`, `db.*`, `system.*` | explicit human approval, amount caps |
 
 Full design: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · policy: [`docs/POLICY.md`](docs/POLICY.md) · MCP: [`docs/MCP.md`](docs/MCP.md)
 

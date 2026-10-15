@@ -1,8 +1,7 @@
 """PROF Gateway HTTP server (FastAPI).
 
 Endpoints:
-  GET  /                     product landing page
-  GET  /console/             operations dashboard
+  GET  /  -> redirect to the console dashboard (/console/)
   GET  /healthz  /readyz
   GET  /version  /v1/policy  /v1/ledger  /metrics
   POST /v1/approve   {subject, agent, action, resource, args, ttl_s, constraints} -> Permit (signed)
@@ -20,7 +19,7 @@ import time
 from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -119,11 +118,7 @@ def get_policy():
 
 @app.get("/", include_in_schema=False)
 def root():
-    import pathlib as _pl
-    landing = _pl.Path(__file__).parent / "landing.html"
-    if landing.exists():
-        return FileResponse(str(landing), media_type="text/html")
-    return {"ok": True, "console": "/console/", "docs": "/docs"}
+    return RedirectResponse("/console/")
 
 
 @app.get("/version")

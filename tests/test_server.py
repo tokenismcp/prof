@@ -30,10 +30,10 @@ def test_console_served():
     assert r.status_code == 200 and "PROF Console" in r.text
 
 
-def test_landing_served():
+def test_landing_redirects_to_console():
     c = _client()
-    r = c.get("/")
-    assert r.status_code == 200 and "Act With Proof" in r.text
+    r = c.get("/", follow_redirects=False)
+    assert r.status_code in (301, 302, 307) and r.headers["location"].endswith("/console/")
 
 
 def test_approve_execute_roundtrip():

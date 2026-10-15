@@ -5,8 +5,8 @@
 - Risk-based policy engine (low/medium/high) + YAML policies
 - Gateway enforcement: VerifyProof ∧ Match ∧ PolicyAllow ∧ Fresh ∧ NotExpired, fail-closed
 - Hash-chained ledger (tamper-evident) + nonce replay store (crash-durable)
-- Gateway HTTP server (`/`, `/console`, `/v1/approve`, `/v1/execute`, `/v1/ledger`, `/v1/policy`, `/healthz`, `/readyz`) + `prof` CLI + `prof demo`
-- Product landing page (`/`) + console v2 (`/console`): KPI donut/sparkline, live feed, toasts, permit inspector, 5-scenario red team, searchable ledger drawer, policy tiers
+- Gateway HTTP server (`/` → `/console`, `/v1/approve`, `/v1/execute`, `/v1/ledger`, `/v1/policy`, `/healthz`, `/readyz`) + `prof` CLI + `prof demo`
+- Console (`/console`, dashboard-only): sidebar nav, KPI deltas, area chart, live feed, toasts, permit inspector, 5-scenario red team, searchable ledger drawer, policy tiers — no emojis, white logo assets
 - Production deploy: hardened image, compose with volume/healthcheck/logging, Caddy TLS edge, k8s manifests, env template, backup/restore scripts, operations runbook
 - MCP adapter + 3 reference workflows (tool call, file modify, payment)
 - 14 tests, CI, Docker, docs
