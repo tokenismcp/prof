@@ -1,12 +1,12 @@
 """PROF Gateway HTTP server (FastAPI).
 
 Endpoints:
-  GET  /healthz
-  GET  /version
+  GET  /                     product landing page
+  GET  /console/             operations dashboard
+  GET  /healthz  /readyz
+  GET  /version  /v1/policy  /v1/ledger  /metrics
   POST /v1/approve   {subject, agent, action, resource, args, ttl_s, constraints} -> Permit (signed)
   POST /v1/execute   {permit, action, resource, args} -> allow/deny + effect result
-  GET  /v1/ledger            -> verify + entries
-  GET  /metrics              -> counters
 
 Demo mode: ephemeral approver key generated at startup, pubkey at /version.
 Production: load key via PROF_APPROVER_PRIV / KMS seam (refuse to start without it
@@ -20,7 +20,7 @@ import time
 from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -119,7 +119,11 @@ def get_policy():
 
 @app.get("/", include_in_schema=False)
 def root():
-    return RedirectResponse("/console/")
+    import pathlib as _pl
+    landing = _pl.Path(__file__).parent / "landing.html"
+    if landing.exists():
+        return FileResponse(str(landing), media_type="text/html")
+    return {"ok": True, "console": "/console/", "docs": "/docs"}
 
 
 @app.get("/version")

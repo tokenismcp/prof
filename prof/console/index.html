@@ -4,94 +4,130 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>PROF Console — Think Freely. Act With Proof.</title>
+<meta name="description" content="PROF operations console: approve, execute, red-team and audit AI agent actions." />
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 <header class="topbar">
-  <img src="logo.png" alt="PROF" class="logo" />
-  <div class="titles">
-    <h1>PROF Console <span class="tag">Developer Preview</span></h1>
-    <p class="slogan">Think Freely. Act With Proof.</p>
+  <a class="brand" href="/" title="PROF home"><img src="logo.png" alt="PROF" /></a>
+  <nav class="tabs" id="tabs">
+    <button data-tab="overview" class="on">Overview</button>
+    <button data-tab="operate">Approve &amp; Execute</button>
+    <button data-tab="redteam">Red Team</button>
+    <button data-tab="ledger">Ledger</button>
+    <button data-tab="policy">Policy</button>
+  </nav>
+  <div class="status">
+    <span class="ver" id="h-version">v…</span>
+    <span class="pill" id="health"><span class="dot gray"></span>connecting</span>
   </div>
-  <div class="health" id="health"><span class="dot gray"></span> connecting…</div>
 </header>
 
+<div class="toastbox" id="toasts"></div>
+
 <main>
-  <section class="cards">
-    <div class="card"><div class="k">Version</div><div class="v" id="c-version">–</div></div>
-    <div class="card"><div class="k">Policy</div><div class="v" id="c-policy">–</div></div>
-    <div class="card green"><div class="k">Allowed</div><div class="v" id="c-allow">–</div></div>
-    <div class="card red"><div class="k">Denied</div><div class="v" id="c-deny">–</div></div>
-    <div class="card"><div class="k">Ledger entries</div><div class="v" id="c-ledger">–</div></div>
-    <div class="card"><div class="k">Chain</div><div class="v small" id="c-chain">–</div></div>
-  </section>
-
-  <section class="grid">
-    <div class="panel">
-      <h2>1 · Approve <span class="hint">issue a signed Permit</span></h2>
-      <label>Agent <input id="a-agent" value="agent:console:01" /></label>
-      <div class="row">
-        <label>Action
-          <select id="a-action">
-            <option>tool.call</option>
-            <option>file.write</option>
-            <option>payment.transfer</option>
-          </select>
-        </label>
-        <label>Resource <input id="a-resource" value="tool:crm.lookup" /></label>
+  <!-- OVERVIEW -->
+  <section id="tab-overview" class="tab on">
+    <div class="kpis">
+      <div class="kpi"><div class="k">Allowed</div><div class="v ok" id="k-allow">–</div><div class="s">gateway approvals executed</div></div>
+      <div class="kpi"><div class="k">Denied</div><div class="v bad" id="k-deny">–</div><div class="s">blocked incl. attacks</div></div>
+      <div class="kpi donut-wrap"><div class="k">Decision mix</div>
+        <svg viewBox="0 0 120 120" class="donut"><circle cx="60" cy="60" r="48" class="track"/><circle cx="60" cy="60" r="48" class="seg-ok" id="donut-ok"/><circle cx="60" cy="60" r="48" class="seg-bad" id="donut-bad"/></svg>
+        <div class="donut-c"><b id="k-rate">–</b><span>allow rate</span></div>
       </div>
-      <label>Args (JSON) <textarea id="a-args" rows="3">{"customer": "acme-42"}</textarea></label>
-      <div class="row">
-        <label>TTL (s) <input id="a-ttl" type="number" value="300" /></label>
-        <button id="btn-approve">Sign permit</button>
-      </div>
-      <pre class="out" id="o-approve">—</pre>
+      <div class="kpi"><div class="k">Ledger entries</div><div class="v" id="k-ledger">–</div><div class="s" id="k-chain">chain: checking…</div></div>
+      <div class="kpi"><div class="k">Policy</div><div class="v small" id="k-policy">–</div><div class="s">permits bound to this version</div></div>
+      <div class="kpi"><div class="k">Activity</div><canvas id="spark" width="220" height="56"></canvas><div class="s">decisions / poll</div></div>
     </div>
-
-    <div class="panel">
-      <h2>2 · Execute <span class="hint">permit is verified server-side</span></h2>
-      <label>Action <input id="e-action" value="tool.call" /></label>
-      <label>Resource <input id="e-resource" value="tool:crm.lookup" /></label>
-      <label>Args (JSON) <textarea id="e-args" rows="3">{"customer": "acme-42"}</textarea></label>
-      <label>Permit (JSON, from step 1) <textarea id="e-permit" rows="5" placeholder='paste permit JSON here — or click “use last permit”'></textarea></label>
-      <div class="row">
-        <button id="btn-use-last">Use last permit</button>
-        <button id="btn-execute" class="primary">Execute</button>
+    <div class="grid2">
+      <div class="panel">
+        <div class="phead"><h2>Live event feed</h2><label class="switch"><input type="checkbox" id="feed-live" checked /> live</label></div>
+        <ul class="feed" id="feed"><li class="mut">waiting for events…</li></ul>
       </div>
-      <pre class="out" id="o-execute">—</pre>
+      <div class="panel">
+        <div class="phead"><h2>Quick actions</h2></div>
+        <p class="mut">Run the full proof loop once: legit allow, then tamper, replay and amount-tamper denials.</p>
+        <div class="row"><button id="btn-full-demo" class="primary">▶ Run full demo</button><button id="btn-go-operate">Open Approve &amp; Execute →</button></div>
+        <pre class="out" id="o-demo">—</pre>
+      </div>
     </div>
   </section>
 
-  <section class="grid">
-    <div class="panel">
-      <h2>3 · Attack demo <span class="hint">one-click red team</span></h2>
-      <div class="row">
-        <button id="btn-legit">Legit request</button>
-        <button id="btn-tamper" class="warn">Tamper args</button>
-        <button id="btn-replay" class="warn">Replay permit</button>
+  <!-- OPERATE -->
+  <section id="tab-operate" class="tab">
+    <div class="steps">
+      <div class="panel grow">
+        <div class="phead"><h2><span class="n">1</span> Approve <span class="hint">issue a signed permit</span></h2></div>
+        <label>Agent<input id="a-agent" value="agent:console:01" /></label>
+        <div class="row2">
+          <label>Action<select id="a-action"><option>tool.call</option><option>file.write</option><option>payment.transfer</option></select></label>
+          <label>Resource<input id="a-resource" value="tool:crm.lookup" /></label>
+        </div>
+        <label>Args (JSON)<textarea id="a-args" rows="4">{"customer": "acme-42"}</textarea></label>
+        <div class="row2">
+          <label>TTL (s)<input id="a-ttl" type="number" value="300" /></label>
+          <label class="self-end"><button id="btn-approve" class="primary">Sign permit</button></label>
+        </div>
       </div>
-      <pre class="out" id="o-attacks">—</pre>
+      <div class="panel grow">
+        <div class="phead"><h2><span class="n">2</span> Execute <span class="hint">verified server-side</span></h2></div>
+        <label>Permit (JSON)<textarea id="e-permit" rows="6" placeholder="Sign a permit in step 1, or paste one here"></textarea></label>
+        <div id="permit-info" class="permit-info mut">no permit loaded</div>
+        <div class="row2">
+          <label>Action<input id="e-action" value="tool.call" /></label>
+          <label>Resource<input id="e-resource" value="tool:crm.lookup" /></label>
+        </div>
+        <label>Args (JSON)<textarea id="e-args" rows="4">{"customer": "acme-42"}</textarea></label>
+        <div class="row"><button id="btn-execute" class="primary">Execute with proof</button><button id="btn-copy-permit">Copy permit</button></div>
+      </div>
     </div>
+    <div class="panel"><div class="phead"><h2><span class="n">3</span> Result</h2></div><pre class="out big" id="o-execute">—</pre></div>
+  </section>
+
+  <!-- RED TEAM -->
+  <section id="tab-redteam" class="tab">
+    <p class="mut wide">Each scenario requests a real permit and attacks it. Expected verdicts are enforced by the gateway, not the UI.</p>
+    <div class="scenarios" id="scenarios"></div>
+    <div class="panel"><div class="row"><button id="btn-run-all" class="primary">Run all scenarios</button><span class="mut" id="rt-summary"></span></div></div>
+  </section>
+
+  <!-- LEDGER -->
+  <section id="tab-ledger" class="tab">
     <div class="panel">
-      <h2>Policy <span class="hint">current rules</span></h2>
-      <table id="t-policy"><thead><tr><th>action</th><th>resource</th><th>tier</th><th>human?</th></tr></thead><tbody></tbody></table>
+      <div class="phead"><h2>Audit ledger <span class="hint">tamper-evident hash chain</span></h2>
+        <span class="pillok" id="ledger-state">checking…</span></div>
+      <div class="toolbar">
+        <div class="seg" id="ledger-filter">
+          <button data-f="all" class="on">all</button><button data-f="approve">approve</button><button data-f="allow">allow</button><button data-f="deny">deny</button>
+        </div>
+        <input id="ledger-q" placeholder="filter: agent, action, resource, detail…" />
+        <button id="btn-ledger">↻ Refresh</button>
+      </div>
+      <table class="ltable"><thead><tr><th>seq</th><th>event</th><th>action</th><th>resource</th><th>agent</th><th>detail</th><th></th></tr></thead><tbody id="ledger-body"></tbody></table>
     </div>
   </section>
 
-  <section class="panel wide">
-    <h2>Audit ledger <span class="hint">tamper-evident hash chain</span></h2>
-    <div class="row">
-      <button id="btn-ledger">Refresh</button>
-      <span id="ledger-msg" class="hint"></span>
+  <!-- POLICY -->
+  <section id="tab-policy" class="tab">
+    <div class="panel">
+      <div class="phead"><h2>Active policy <span class="hint mono" id="policy-id"></span></h2></div>
+      <div class="tiers">
+        <div class="tier low"><b>Low</b><span>pre-delegated reads, auto-approvable</span></div>
+        <div class="tier med"><b>Medium</b><span>constrained tokens: limits, expiry, prefix</span></div>
+        <div class="tier high"><b>High</b><span>explicit human approval, amount caps</span></div>
+      </div>
+      <table class="ltable"><thead><tr><th>action</th><th>resource</th><th>tier</th><th>human</th><th>max amount</th></tr></thead><tbody id="policy-body"></tbody></table>
+      <p class="mut">Unmatched requests fall back to <b id="policy-default"></b> → deny (fail-closed). Changing <span class="mono">policy_id</span> invalidates outstanding permits.</p>
     </div>
-    <table id="t-ledger">
-      <thead><tr><th>seq</th><th>event</th><th>action</th><th>resource</th><th>agent</th><th>detail</th></tr></thead>
-      <tbody></tbody>
-    </table>
   </section>
 </main>
 
-<footer>PROF v0.1 · Gateway verifies every request server-side · <a href="/docs">API docs</a> · fail-closed</footer>
+<div class="drawer" id="drawer"><div class="dhead"><h3>Ledger entry <span id="d-seq"></span></h3><button id="d-close">✕</button></div><pre class="out big" id="d-body"></pre>
+<div class="chain" id="d-chain"></div></div>
+<div class="scrim" id="scrim"></div>
+
+<footer>PROF Console · gateway verifies every request server-side · <a href="/">product</a> · <a href="/docs">API docs</a> · fail-closed</footer>
 <script src="app.js"></script>
 </body>
 </html>

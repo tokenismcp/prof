@@ -30,6 +30,12 @@ def test_console_served():
     assert r.status_code == 200 and "PROF Console" in r.text
 
 
+def test_landing_served():
+    c = _client()
+    r = c.get("/")
+    assert r.status_code == 200 and "Act With Proof" in r.text
+
+
 def test_approve_execute_roundtrip():
     c = _client()
     ap = c.post("/v1/approve", json={"agent": "agent:t", "action": "tool.call",

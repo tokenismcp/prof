@@ -46,16 +46,17 @@ python examples/03_payment_request.py # payment + replay-deny
 python -m prof gateway                # HTTP gateway on :8091
 ```
 
-## Console dashboard
+## Console dashboard & product page
 
-`python -m prof gateway` then open **http://127.0.0.1:8091/console/** (or `/` redirects there):
+`python -m prof gateway`, then:
 
-- live allow/deny counters, policy id, ledger size + chain validity
-- **Approve** panel — issue a signed Permit in the browser
-- **Execute** panel — run a permit (verified server-side; agent stays untrusted)
-- **Attack demo** — one-click legit / tamper / replay
-- **Audit ledger** — hash-chain entries with tamper detection
-- **Policy** — current risk rules
+- **http://127.0.0.1:8091/** — product landing (hero, quickstart, risk tiers, roadmap)
+- **http://127.0.0.1:8091/console/** — operations console:
+  - *Overview*: allow/deny KPIs, decision-mix donut, activity sparkline, live event feed, one-click full demo
+  - *Approve & Execute*: 3-step workflow with permit inspector (expiry countdown, args-hash, nonce) + copy
+  - *Red Team*: 5 scenarios (legit / tamper / replay / expired / scope escalation) with expected-verdict badges
+  - *Ledger*: filter by event, full-text search, click any row for the hash-linked entry detail
+  - *Policy*: tier badges, caps, default-deny note
 
 ## Production deploy
 
