@@ -360,7 +360,8 @@ $("btn-agent-run").onclick = async () => {
   show("o-agent", "running model → permit → execution loop…");
   $("agent-summary").textContent = "";
   const { status, body } = await jpost("/v1/agent/run", { task, max_steps: 8,
-    human_approve: $("agent-human").checked, model_override: $("llm-pick").value || "" });
+    human_approve: $("agent-human").checked, wait_approval: $("agent-wait").checked,
+    approval_timeout_s: 120, model_override: $("llm-pick").value || "" });
   if (status !== 200) {
     show("o-agent", `HTTP ${status}\n` + JSON.stringify(body, null, 2));
     toast("err", "Agent run failed", (body.detail || "").slice(0, 160));
@@ -372,9 +373,52 @@ $("btn-agent-run").onclick = async () => {
   toast(body.denied && !body.allowed ? "err" : "ok", "Agent run finished", `allowed ${body.allowed}, denied ${body.denied}`);
   refresh();
 };
-$("snip-mcp").value = '{\n  "mcpServers": {\n    "prof": { "command": "prof", "args": ["mcp"] }\n  }\n}';
-$("btn-copy-mcp").onclick = () => copyText($("snip-mcp").value, "MCP JSON copied — use install.sh for your absolute path");
-$("btn-copy-hook").onclick = () => copyText($("snip-hook").value, "hook command copied");
+/* ---------- remote MCP self-test + per-agent panes ---------- */
+$("mcp-url").value = location.origin + "/mcp";
+$("btn-copy-mcp-url").onclick = () => copyText($("mcp-url").value, "endpoint URL copied");
+$("btn-mcp-test").onclick = async () => {
+  const { status, body } = await jpost("/mcp", { jsonrpc: "2.0", id: 1,
+    method: "tools/list", params: {} }).catch((e) => ({ status: 0, body: e }));
+  const el = $("mcp-state");
+  const tools = body && body.result && body.result.tools;
+  if (status === 200 && tools) {
+    el.textContent = `live · ${tools.length} tools`;
+    el.classList.remove("bad");
+    $("mcp-info").textContent = "Endpoint answers: " + tools.map((t) => t.name).join(", ");
+  } else {
+    el.textContent = "unreachable";
+    el.classList.add("bad");
+  }
+};
+const AGENTS = {
+  dots: { title: "OpenAI Dots — custom MCP app", body:
+    `1. Expose this gateway publicly: PROF_DOMAIN=… docker compose --profile edge up\n2. ChatGPT web → Settings → Apps → Advanced → Developer mode\n3. Plugins → + → Create MCP App (PROF, endpoint URL above, PROF_API_TOKEN as key)\n4. Verify: ask the dot to list PROF tools and look up acme-42\nNote: Pro workspaces are read-only for custom apps; writes need Business+.` },
+  muse: { title: "Meta Muse — chat-built connector", body:
+    `Paste into a Muse chat, replacing the URL with the endpoint above:\n\nBuild a custom connector to PROF, my proof-required execution gateway.\nIts MCP server is <URL> — hosted HTTPS, streamable HTTP.\nAuth is a static bearer token: ask me via the secure credential flow.\nTools: prof.approve, crm.lookup, file.write, payment.transfer (HIGH-RISK).\nConnect, test every tool, save as skill "PROF".\n\nPaste PROF_API_TOKEN only into the secure prompt, never the chat.` },
+  claude: { title: "Claude Code", body:
+    `MCP (any transport):\n  claude mcp add prof -- prof mcp\nRemote gateway instead:\n  claude mcp add --transport http prof <endpoint-URL>\n\nPreToolUse hook (auto-gates Write/Edit/Bash):\n  merge integrations/claude-code/settings-snippet.json into ~/.claude/settings.json\n  (hook: integrations/claude-code/prof-hook.py)` },
+  codex: { title: "Codex CLI", body:
+    `Append to ~/.codex/config.toml:\n  [mcp_servers.prof]\n  command = "prof"\n  args = ["mcp"]\nThen: "approve crm lookup for acme-42, then call it with the permit".` },
+  gemini: { title: "Gemini CLI", body:
+    `Merge into ~/.gemini/settings.json:\n  { "mcpServers": { "prof": { "command": "prof", "args": ["mcp"] } } }` },
+  cursor: { title: "Cursor / Windsurf / Cline / VS Code / OpenCode", body:
+    `Paste into the client's MCP config (.cursor/mcp.json, mcp_config.json, …):\n  { "mcpServers": { "prof": { "command": "prof", "args": ["mcp"] } } }\nRestart the client. (OpenCode: integrations/opencode/opencode.json)` },
+  hook: { title: "Shell gate — any hook-capable agent", body:
+    `PROF_ACTION=tool.call PROF_RESOURCE='tool:shell' PROF_ARGS='{"cmd":"deploy"}' \\\n  sh integrations/generic/prof-gate.sh   # exit 0 allow / 2 block\n\nEnd-to-end wrapper (high-tier needs --human-approve):\n  prof exec --action … --resource … --args … -- ./deploy.sh` },
+};
+function renderAgentPane(key) {
+  const a = AGENTS[key];
+  $("agent-pane").innerHTML =
+    `<p class="mut"><b style="color:var(--txt)">${esc(a.title)}</b></p>` +
+    `<pre class="out" id="agent-snip">${esc(a.body)}</pre>` +
+    `<div class="row"><button id="btn-copy-ag">Copy instructions</button></div>`;
+  $("btn-copy-ag").onclick = () => copyText(a.body, "copied — full guide in docs/AGENTS.md");
+}
+document.querySelectorAll("#agent-tabs button").forEach((b) => (b.onclick = () => {
+  document.querySelectorAll("#agent-tabs button").forEach((x) => x.classList.remove("on"));
+  b.classList.add("on"); renderAgentPane(b.dataset.ag);
+}));
+renderAgentPane("dots");
 document.querySelectorAll("#ledger-filter button").forEach((b) => (b.onclick = () => {
   document.querySelectorAll("#ledger-filter button").forEach((x) => x.classList.remove("on"));
   b.classList.add("on"); ledgerFilter = b.dataset.f; renderLedgerRows();
