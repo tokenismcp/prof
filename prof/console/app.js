@@ -12,9 +12,9 @@ function goTab(name) {
 }
 tabBtns.forEach((b) => (b.onclick = () => goTab(b.dataset.tab)));
 const TITLES = {
-  overview: ["Overview", "Live enforcement posture at a glance"],
+  overview: ["Overview", "Live enforcement posture"],
   operate: ["Approve & Execute", "Sign a permit, then execute it — verified server-side"],
-  redteam: ["Red Team", "Attack real permits; the gateway decides, not the UI"],
+  verify: ["Verification", "Adversarial checks against real permits; the gateway decides"],
   ledger: ["Ledger", "Tamper-evident audit trail, hash-linked"],
   policy: ["Policy", "Risk tiers currently enforced"],
 };
@@ -24,8 +24,8 @@ goTab = function (name) {
   const t = TITLES[name] || [name, ""];
   $("view-title").textContent = t[0]; $("view-sub").textContent = t[1];
 };
-if (["overview","operate","redteam","ledger","policy"].includes(location.hash.slice(1))) goTab(location.hash.slice(1));
-$("btn-go-operate").onclick = () => goTab("operate");
+if (["overview","operate","verify","ledger","policy"].includes(location.hash.slice(1))) goTab(location.hash.slice(1));
+if (location.hash === "#redteam") goTab("verify");
 
 /* ---------- api + toast ---------- */
 async function jget(p) { const r = await fetch(p); if (!r.ok) throw new Error(p + " " + r.status); return r.json(); }
@@ -87,11 +87,14 @@ const ago = (ts) => { const s = Math.max(0, Date.now()/1000 - ts); return s < 60
 async function refresh() {
   try {
     const [v, m, l] = await Promise.all([jget("/version"), jget("/metrics"), jget("/v1/ledger")]);
-    $("health").innerHTML = '<span class="dot green"></span>online';
+    $("health").innerHTML = '<span class="dot green"></span><span>online</span>';
     $("h-version").textContent = "v" + (v.version || "?");
-    const demo = (v.approver_subject || "") === "user:demo";
-    $("env-pill").textContent = demo ? "demo" : "prod · " + v.approver_subject;
-    $("env-pill").classList.toggle("prod", !demo);
+    $("ap-subject").textContent = v.approver_subject || "–";
+    $("ap-source").textContent = v.key_source === "configured"
+      ? "managed key (secret manager / HSM)"
+      : "ephemeral key (single process)";
+    $("ap-pubkey").textContent = "computing…";
+    fingerprint(v.approver_pubkey || "").then((fp) => { $("ap-pubkey").textContent = fp; });
     $("k-allow").textContent = m.allow ?? 0;
     $("k-deny").textContent = m.deny ?? 0;
     $("lg-allow").textContent = m.allow ?? 0;
@@ -120,7 +123,16 @@ function renderFeed() {
   $("feed").innerHTML = items.length ? items.map((e) =>
     `<li><span class="t">${ago(e.ts)}</span><span class="ev ev-${e.event}">${e.event}</span>` +
     `<span><b>${esc(e.action)}</b> · ${esc(e.resource)}<br><span class="mut">${esc((e.detail||"").slice(0,110))}</span></span></li>`
-  ).join("") : '<li class="mut">no events yet — run the demo</li>';
+  ).join("") : '<li class="mut">no events yet</li>';
+}
+
+/* key fingerprint via WebCrypto */
+async function fingerprint(b64) {
+  try {
+    const raw = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const d = await crypto.subtle.digest("SHA-256", raw);
+    return "sha256:" + [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 24) + "…";
+  } catch { return "–"; }
 }
 
 /* ---------- operate ---------- */
@@ -146,6 +158,13 @@ function permitInfo() {
 $("e-permit").addEventListener("input", permitInfo);
 setInterval(() => { if ($("tab-operate").classList.contains("on") && $("e-permit").value) permitInfo(); }, 5000);
 $("btn-copy-permit").onclick = () => $("e-permit").value && copyText($("e-permit").value, "permit JSON copied");
+$("btn-copy-curl").onclick = () => {
+  let args, permit;
+  try { args = JSON.parse($("e-args").value); permit = JSON.parse($("e-permit").value); }
+  catch { toast("err", "No permit", "sign a permit in step 1 first"); return; }
+  const body = JSON.stringify({ action: $("e-action").value, resource: $("e-resource").value, args, permit });
+  copyText(`curl -s -X POST ${location.origin}/v1/execute -H 'content-type: application/json' -d '${body.replace(/'/g, "'\\''")}'`, "curl command copied");
+};
 
 $("btn-approve").onclick = async () => {
   let args; try { args = JSON.parse($("a-args").value); } catch (e) { toast("err","Bad JSON","fix Args JSON"); return; }
@@ -206,16 +225,18 @@ $("btn-run-all").onclick = async () => {
   let pass = 0;
   for (const s of SCEN) if (await runScen(s.id)) pass++;
   $("rt-summary").textContent = `${pass}/${SCEN.length} scenarios behaved as expected`;
-  toast(pass === SCEN.length ? "ok" : "err", "Red team complete", `${pass}/${SCEN.length} as expected`);
+  toast(pass === SCEN.length ? "ok" : "err", "Verification complete", `${pass}/${SCEN.length} as expected`);
 };
 
-/* ---------- full demo ---------- */
-$("btn-full-demo").onclick = async () => {
-  show("o-demo", "running…");
-  const lines = [];
-  for (const s of SCEN.slice(0, 4)) { const ok = await runScen(s.id); lines.push(`${ok ? "✓" : "✕"} ${s.name}`); }
-  goTab("redteam");
-  show("o-demo", lines.join("\n"));
+/* ---------- ledger export ---------- */
+$("btn-export").onclick = () => {
+  const blob = new Blob([JSON.stringify(lastEntries, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "prof-ledger.json";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  toast("ok", "Exported", `${lastEntries.length} ledger entries downloaded`);
 };
 
 /* ---------- ledger ---------- */
@@ -267,7 +288,7 @@ async function loadPolicy() {
 /* ---------- boot ---------- */
 document.addEventListener("keydown", (e) => {
   if (e.target.matches("input,textarea,select")) return;
-  const tabs = ["overview", "operate", "redteam", "ledger", "policy"];
+  const tabs = ["overview", "operate", "verify", "ledger", "policy"];
   if (e.key >= "1" && e.key <= "5") goTab(tabs[+e.key - 1]);
   if (e.key === "/") { e.preventDefault(); goTab("ledger"); setTimeout(() => $("ledger-q").focus(), 50); }
 });

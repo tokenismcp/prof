@@ -37,7 +37,6 @@ app = FastAPI(title="PROF Gateway", version=VERSION)
 
 _approver: Optional[Approver] = None
 _gateway: Optional[Gateway] = None
-_counters = {"allow": 0, "deny": 0}
 
 
 def _init() -> None:
@@ -132,6 +131,7 @@ def version():
         "policy_id": _gateway.policy.policy_id,
         "approver_subject": _approver.subject,
         "approver_pubkey": b64_pubkey(_approver.pubkey),
+        "key_source": "configured" if os.environ.get("PROF_APPROVER_PRIV") else "ephemeral",
         "ledger_head": _gateway.ledger.head,
     }
 
@@ -171,10 +171,8 @@ def execute(inp: ExecuteIn):
         fn = _effect(inp.action, inp.resource if inp.resource in [k[1] for k in EFFECTS] else inp.action and _match_effect(inp.action, inp.resource))
     except PermissionError as exc:
         d = _gateway._deny(req, f"deny: {exc}")
-        _count(deny=True)
         return {"ok": False, "decision": d.reason}
     dec, result = _gateway.execute(req, fn)
-    _count(deny=not dec.allow)
     if not dec.allow:
         return {"ok": False, "decision": dec.reason}
     return {"ok": True, "decision": dec.reason, "result": result, "ledger_seq": dec.ledger_seq}
@@ -189,22 +187,29 @@ def _match_effect(action: str, resource: str):
     return _effect(action, resource)
 
 
-def _count(deny: bool):
-    _counters["deny" if deny else "allow"] += 1
-
-
 @app.get("/v1/ledger")
-def ledger():
+def ledger(limit: int = 100):
     assert _gateway
     ok, msg = _gateway.ledger.verify_chain()
-    return {"ok": ok, "message": msg,
-            "entries": [e.__dict__ for e in _gateway.ledger.entries[-100:]]}
+    limit = max(1, min(limit, 1000))
+    return {"ok": ok, "message": msg, "total": len(_gateway.ledger.entries),
+            "entries": [e.__dict__ for e in _gateway.ledger.entries[-limit:]]}
 
 
 @app.get("/metrics")
 def metrics():
+    # Derived from the durable ledger (survives restarts when PROF_LEDGER is set),
+    # not from process-local counters.
     assert _gateway
-    return {"allow": _counters["allow"], "deny": _counters["deny"],
+    allow = deny = approve = 0
+    for e in _gateway.ledger.entries:
+        if e.event == "allow" and not e.permit_nonce.endswith(":result"):
+            allow += 1
+        elif e.event == "deny":
+            deny += 1
+        elif e.event == "approve":
+            approve += 1
+    return {"allow": allow, "deny": deny, "approve": approve,
             "ledger_entries": len(_gateway.ledger.entries), "nonces": _gateway.nonces.size()}
 
 

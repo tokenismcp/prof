@@ -50,10 +50,10 @@ python -m prof gateway                # HTTP gateway on :8091
 
 `python -m prof gateway`, then open **http://127.0.0.1:8091/** (redirects to the console):
 
-  - *Overview*: allow/deny KPIs, decision-mix donut, activity chart, live event feed, one-click full demo
-  - *Approve & Execute*: 3-step workflow with permit inspector (expiry countdown, args-hash, nonce) + copy
-  - *Red Team*: 5 scenarios (legit / tamper / replay / expired / scope escalation) with expected-verdict badges
-  - *Ledger*: filter by event, full-text search, click any row for the hash-linked entry detail
+  - *Overview*: allow/deny KPIs, decision-mix donut, activity chart, live events, approver identity (subject, key source, fingerprint)
+  - *Approve & Execute*: 3-step workflow with permit inspector (expiry countdown, args-hash, nonce) + copy + copy-as-curl
+  - *Verification*: 5 adversarial checks (legit / tamper / replay / expired / scope escalation) with expected-verdict badges
+  - *Ledger*: filter by event, full-text search, click any row for the hash-linked entry detail, JSON export
   - *Policy*: tier badges, caps, default-deny note
 
 ## Production deploy

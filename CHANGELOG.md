@@ -6,7 +6,7 @@
 - Gateway enforcement: VerifyProof ∧ Match ∧ PolicyAllow ∧ Fresh ∧ NotExpired, fail-closed
 - Hash-chained ledger (tamper-evident) + nonce replay store (crash-durable)
 - Gateway HTTP server (`/` → `/console`, `/v1/approve`, `/v1/execute`, `/v1/ledger`, `/v1/policy`, `/healthz`, `/readyz`) + `prof` CLI + `prof demo`
-- Console (`/console`, dashboard-only): sidebar nav, KPI deltas, area chart, live feed, toasts, permit inspector, 5-scenario red team, searchable ledger drawer, policy tiers — no emojis, white logo assets
+- Console (`/console`, dashboard-only): light top-nav layout, transparent logo with no backdrop box, approver identity panel, ledger JSON export, copy-as-curl, ledger-derived metrics (restart-durable), `/v1/ledger?limit=`, `key_source` in `/version`
 - Real data layer (`prof/resources.py`): SQLite customers/accounts/payments/file registry, balances in cents, persisted idempotency, hash-chained file writes, sandbox enforcement, `PROF_DB` for production persistence
 - LLM API integration (`prof/llm.py`): provider-agnostic OpenAI-compatible client (stdlib only) + proof-required agentic loop (`prof agent-run`, `prof llm-check`), high-tier needs human sign-off
 - Agent surface hardened: `prof-mcp` now runs the real stdio server, `examples/mcp_server.py` is a working launcher, protocol tests run against the installed binary

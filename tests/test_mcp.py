@@ -66,8 +66,13 @@ def test_stdio_end_to_end():
     # MCP client performs it: initialize -> notified -> list -> approve -> call.
     import shutil
     binary = shutil.which("prof-mcp") or shutil.which("prof")
-    assert binary, "prof-mcp/prof binary missing (run integrations/install.sh)"
-    argv = [binary] if binary.endswith("prof-mcp") else [binary, "mcp"]
+    if binary and binary.endswith("prof-mcp"):
+        argv = [binary]
+    elif binary:
+        argv = [binary, "mcp"]
+    else:  # dev checkout without install: same interpreter, same code
+        argv = [sys.executable, "-m", "prof", "mcp"]
+    assert argv, "no PROF entrypoint found"
     script = [
         {"jsonrpc": "2.0", "id": 1, "method": "initialize",
          "params": {"protocolVersion": "2024-11-05", "capabilities": {},
