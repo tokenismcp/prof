@@ -1,6 +1,9 @@
 .PHONY: install test demo lint server console docker-build docker-up k8s-apply clean
 
 install:
+	sh integrations/install.sh
+
+install-dev:
 	pip install -e ".[dev]"
 
 test:

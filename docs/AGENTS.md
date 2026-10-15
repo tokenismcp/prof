@@ -1,5 +1,16 @@
 # Agent Integrations — put PROF in front of any agent
 
+## 0 · Install first (required)
+
+```sh
+sh integrations/install.sh
+```
+
+This installs the package, verifies `prof demo`, and prints MCP JSON with an
+**absolute** `prof` path (GUI-launched agents don't inherit your shell `$PATH`).
+If `prof` isn't on your PATH afterwards, add the printed bin dir to your shell rc.
+Developers with modern pip can use `pip install -e ".[dev]"` instead.
+
 Two integration surfaces. Pick one (or both — they compose).
 
 | Surface | What | For |
@@ -17,7 +28,7 @@ claude mcp add prof -- prof mcp
 ```
 
 **PreToolUse hook** (recommended — gates Write/Edit/Bash automatically):
-1. `pip install -e /path/to/prof` (puts `prof` on PATH)
+1. Install: `sh integrations/install.sh` (puts a working `prof` on PATH)
 2. Merge `integrations/claude-code/settings-snippet.json` into `~/.claude/settings.json`
    (fix the hook path to your checkout), or project `.claude/settings.json`.
 3. Test: `echo '{"tool_name":"Bash","tool_input":{"command":"ls"}}' | python3 integrations/claude-code/prof-hook.py; echo "exit=$?"` → `exit=0`.
@@ -62,7 +73,7 @@ prof exec --action tool.call --resource tool:shell --args '{"cmd":"deploy"}' -- 
 
 ## Troubleshooting
 
-- `prof: command not found` → `pip install -e /path/to/prof`, ensure the bin dir is on PATH (or use `python -m prof …`).
+- `prof: command not found` → run `sh integrations/install.sh`; ensure the printed bin dir is on PATH (or use `python -m prof …` from this repo).
 - MCP client shows no tools → restart the client after config change; run `prof mcp` manually and send `{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}` to smoke-test.
 - Hook blocks everything → check `PROF_STRICT`; unmapped tools pass by default.
 - Permit rejected as expired → TTL (default 300s) too short for long tasks; raise `--ttl` / `ttl_s`.

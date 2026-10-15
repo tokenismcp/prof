@@ -21,7 +21,7 @@
 
 ```sh
 git clone https://github.com/4chains-inc/prof && cd prof
-pip install -e ".[dev]"
+sh integrations/install.sh   # installs + verifies + prints MCP JSON (works on old pip too)
 python -m prof demo
 ```
 
