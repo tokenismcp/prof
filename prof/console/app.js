@@ -11,6 +11,19 @@ function goTab(name) {
   if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name);
 }
 tabBtns.forEach((b) => (b.onclick = () => goTab(b.dataset.tab)));
+const TITLES = {
+  overview: ["Overview", "Live enforcement posture at a glance"],
+  operate: ["Approve & Execute", "Sign a permit, then execute it — verified server-side"],
+  redteam: ["Red Team", "Attack real permits; the gateway decides, not the UI"],
+  ledger: ["Ledger", "Tamper-evident audit trail, hash-linked"],
+  policy: ["Policy", "Risk tiers currently enforced"],
+};
+const _goTab = goTab;
+goTab = function (name) {
+  _goTab(name);
+  const t = TITLES[name] || [name, ""];
+  $("view-title").textContent = t[0]; $("view-sub").textContent = t[1];
+};
 if (["overview","operate","redteam","ledger","policy"].includes(location.hash.slice(1))) goTab(location.hash.slice(1));
 $("btn-go-operate").onclick = () => goTab("operate");
 
@@ -35,7 +48,7 @@ function copyText(t, label) {
 const show = (id, o) => { $(id).textContent = typeof o === "string" ? o : JSON.stringify(o, null, 2); };
 
 /* ---------- state ---------- */
-let lastPermit = null, lastEntries = [], ledgerFilter = "all", sparkHist = [];
+let lastPermit = null, lastEntries = [], ledgerFilter = "all", areaHist = [], baseAllow = null, baseDeny = null;
 const CIRC = 2 * Math.PI * 48;
 
 /* ---------- overview ---------- */
@@ -46,18 +59,28 @@ function donut(allow, deny) {
   $("donut-bad").style.strokeDashoffset = String(-CIRC * frac);
   $("k-rate").textContent = tot ? Math.round(frac * 100) + "%" : "–";
 }
-function spark(push) {
-  sparkHist.push(push); if (sparkHist.length > 40) sparkHist.shift();
-  const c = $("spark"), x = c.getContext("2d"), W = c.width, H = c.height;
+function area(push) {
+  areaHist.push(push); if (areaHist.length > 48) areaHist.shift();
+  const c = $("area"); if (!c) return;
+  const dpr = window.devicePixelRatio || 1, W = c.clientWidth || 600, H = 220;
+  c.width = W * dpr; c.height = H * dpr;
+  const x = c.getContext("2d"); x.scale(dpr, dpr);
   x.clearRect(0, 0, W, H);
-  const mx = Math.max(1, ...sparkHist.map((p) => p.a + p.d));
-  const n = sparkHist.length;
-  sparkHist.forEach((p, i) => {
-    const bw = W / 40, bx = W - (n - i) * bw;
-    const ah = (p.a / mx) * (H - 4), dh = (p.d / mx) * (H - 4);
-    x.fillStyle = "#22c55e"; x.fillRect(bx, H - ah, bw - 2, ah);
-    x.fillStyle = "#ff5470"; x.fillRect(bx, H - ah - dh, bw - 2, Math.max(1, dh));
-  });
+  const mx = Math.max(1, ...areaHist.map((p) => p.a + p.d));
+  const n = areaHist.length, step = W / 48;
+  const y = (v) => H - 14 - (v / mx) * (H - 40);
+  const series = (key, color, fill) => {
+    x.beginPath();
+    areaHist.forEach((p, i) => { const px = W - (n - 1 - i) * step; i ? x.lineTo(px, y(p[key])) : x.moveTo(px, y(p[key])); });
+    x.strokeStyle = color; x.lineWidth = 2; x.stroke();
+    x.lineTo(W - 0, H - 14); x.lineTo(W - (n - 1) * step, H - 14); x.closePath();
+    const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, fill); g.addColorStop(1, "rgba(255,255,255,0)");
+    x.fillStyle = g; x.fill();
+  };
+  x.strokeStyle = "#e6ecf6"; x.lineWidth = 1;
+  [0.33, 0.66].forEach((f) => { x.beginPath(); x.moveTo(0, H * f); x.lineTo(W, H * f); x.stroke(); });
+  series("a", "#15803d", "rgba(21,128,61,.18)");
+  series("d", "#dc2645", "rgba(220,38,69,.14)");
 }
 const ago = (ts) => { const s = Math.max(0, Date.now()/1000 - ts); return s < 60 ? Math.floor(s)+"s ago" : Math.floor(s/60)+"m ago"; };
 
@@ -66,14 +89,25 @@ async function refresh() {
     const [v, m, l] = await Promise.all([jget("/version"), jget("/metrics"), jget("/v1/ledger")]);
     $("health").innerHTML = '<span class="dot green"></span>online';
     $("h-version").textContent = "v" + (v.version || "?");
+    const demo = (v.approver_subject || "") === "user:demo";
+    $("env-pill").textContent = demo ? "demo" : "prod · " + v.approver_subject;
+    $("env-pill").classList.toggle("prod", !demo);
     $("k-allow").textContent = m.allow ?? 0;
     $("k-deny").textContent = m.deny ?? 0;
+    $("lg-allow").textContent = m.allow ?? 0;
+    $("lg-deny").textContent = m.deny ?? 0;
+    if (baseAllow === null) { baseAllow = m.allow || 0; baseDeny = m.deny || 0; }
+    const da = (m.allow || 0) - baseAllow, dd = (m.deny || 0) - baseDeny;
+    const dA = $("d-allow"), dD = $("d-deny");
+    dA.textContent = "+" + da; dA.className = "delta" + (da ? " up-ok" : "");
+    dD.textContent = "+" + dd; dD.className = "delta" + (dd ? " up-bad" : "");
+    $("sb-head").textContent = "ledger head " + String(v.ledger_head || "").slice(0, 22) + "…";
     $("k-ledger").textContent = m.ledger_entries ?? 0;
     $("k-policy").textContent = v.policy_id || "–";
     $("k-chain").textContent = "chain: " + (l.ok ? "valid ✓" : "INVALID ✕");
     $("k-chain").style.color = l.ok ? "var(--ok)" : "var(--bad)";
     donut(m.allow || 0, m.deny || 0);
-    spark({ a: m.allow || 0, d: m.deny || 0 });
+    area({ a: m.allow || 0, d: m.deny || 0 });
     lastEntries = l.entries || [];
     renderFeed(); renderLedgerRows();
   } catch (e) {
@@ -231,6 +265,13 @@ async function loadPolicy() {
 }
 
 /* ---------- boot ---------- */
+document.addEventListener("keydown", (e) => {
+  if (e.target.matches("input,textarea,select")) return;
+  const tabs = ["overview", "operate", "redteam", "ledger", "policy"];
+  if (e.key >= "1" && e.key <= "5") goTab(tabs[+e.key - 1]);
+  if (e.key === "/") { e.preventDefault(); goTab("ledger"); setTimeout(() => $("ledger-q").focus(), 50); }
+});
+window.addEventListener("resize", () => areaHist.length && area(areaHist[areaHist.length - 1]));
 loadPolicy();
 refresh();
 setInterval(() => { if (!document.hidden) refresh(); }, 4000);
