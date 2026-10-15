@@ -123,11 +123,16 @@
       <div class="panel">
         <div class="phead"><h2>LLM connection</h2><span class="pillok" id="llm-state">checking…</span></div>
         <dl class="kv">
+          <div><dt>Provider</dt><dd class="mono" id="llm-provider">–</dd></div>
           <div><dt>Endpoint</dt><dd class="mono small" id="llm-url">–</dd></div>
           <div><dt>Model</dt><dd class="mono" id="llm-model">–</dd></div>
+          <div><dt>API key</dt><dd id="llm-key">–</dd></div>
         </dl>
-        <div class="row"><button id="btn-llm-check">Check again</button></div>
-        <p class="mut small">Any OpenAI-compatible API: Ollama, vLLM, OpenAI, Azure. Set <span class="mono">PROF_LLM_BASE_URL</span>, <span class="mono">PROF_LLM_MODEL</span>, <span class="mono">PROF_LLM_API_KEY</span> on the gateway.</p>
+        <div class="row2">
+          <label>Run with model<select id="llm-pick"><option value="">gateway default</option></select></label>
+          <label class="self-end"><span class="row"><button id="btn-llm-check">Check again</button><button id="btn-llm-save">Save to gateway</button></span></label>
+        </div>
+        <p class="mut small">Local (Ollama, LM Studio, vLLM) or hosted (OpenAI, Azure, OpenRouter, Anthropic). API keys stay environment-only — the console never accepts or shows them. Saving writes <span class="mono">configs/llm.env</span>; restart the gateway to apply.</p>
       </div>
       <div class="panel">
         <div class="phead"><h2>Run a task</h2><span class="hint">model → permit → verified execution</span></div>

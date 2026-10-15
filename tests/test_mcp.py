@@ -38,10 +38,22 @@ def test_approve_then_call_allow():
     assert body["ok"] is True and "acme-42" in str(body["result"])
 
 
-def test_call_without_permit_fails():
+def test_call_without_permit_auto_allows_low_tier():
     srv = MCPServer()
-    r = rpc(srv, "tools/call", {"name": "crm.lookup", "arguments": {"customer": "x"}}, mid=5)
+    r = rpc(srv, "tools/call", {"name": "crm.lookup",
+                                "arguments": {"customer": "acme-42"}}, mid=5)
+    body = json.loads(r["result"]["content"][0]["text"])
+    assert body["ok"] is True and body["result"]["name"] == "Acme Corp"
+
+
+def test_call_without_permit_denies_high_tier_with_guidance():
+    srv = MCPServer()
+    r = rpc(srv, "tools/call", {"name": "payment.transfer",
+                                "arguments": {"to": "x", "amount": 1,
+                                              "idempotency_key": "k"}}, mid=6)
     assert r["result"].get("isError") is True
+    body = json.loads(r["result"]["content"][0]["text"])
+    assert body["ok"] is False and "human approval" in body["error"]
 
 
 def test_tampered_args_denied():

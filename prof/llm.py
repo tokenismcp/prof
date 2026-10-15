@@ -5,9 +5,15 @@ Provider-agnostic: talks to any OpenAI-compatible chat-completions API
 only the standard library, so `pip install prof` stays dependency-free.
 
 Config via environment (or explicit LLMConfig):
-  PROF_LLM_BASE_URL  default http://localhost:11434/v1  (Ollama)
-  PROF_LLM_API_KEY   default "" (unset for local servers like Ollama)
-  PROF_LLM_MODEL     default gpt-4o-mini
+  PROF_LLM_PROVIDER   ollama | lmstudio | vllm | openai | azure | openrouter | anthropic
+                      default: ollama (local, no key)
+  PROF_LLM_BASE_URL   default per provider (override allowed)
+  PROF_LLM_API_KEY    default "" (required for hosted providers; never logged)
+  PROF_LLM_MODEL      default per provider
+
+Two wire protocols: OpenAI-compatible chat-completions (covers Ollama,
+LM Studio, vLLM, llama.cpp, OpenAI, Azure, OpenRouter) and Anthropic
+native (/v1/messages, translated tool format).
 
 How it works (run_task):
   1. The model receives the user task + PROF tool schemas (OpenAI tools format).
@@ -91,15 +97,57 @@ SYSTEM_PROMPT = (
 
 @dataclass
 class LLMConfig:
-    base_url: str = field(default_factory=lambda: os.environ.get(
-        "PROF_LLM_BASE_URL", "http://localhost:11434/v1"))
+    provider: str = field(default_factory=lambda: os.environ.get("PROF_LLM_PROVIDER", "ollama"))
+    base_url: str = field(default_factory=lambda: os.environ.get("PROF_LLM_BASE_URL", ""))
     api_key: str = field(default_factory=lambda: os.environ.get("PROF_LLM_API_KEY", ""))
-    model: str = field(default_factory=lambda: os.environ.get("PROF_LLM_MODEL", "gpt-4o-mini"))
+    model: str = field(default_factory=lambda: os.environ.get("PROF_LLM_MODEL", ""))
     timeout_s: int = 60
+
+    def __post_init__(self) -> None:
+        preset = PROVIDERS.get(self.provider, PROVIDERS["ollama"])
+        if not self.base_url:
+            object.__setattr__(self, "base_url", preset["base_url"])
+        if not self.model:
+            object.__setattr__(self, "model", preset["model"])
+
+    @property
+    def protocol(self) -> str:
+        return PROVIDERS.get(self.provider, PROVIDERS["ollama"])["protocol"]
+
+    @property
+    def needs_key(self) -> bool:
+        return PROVIDERS.get(self.provider, PROVIDERS["ollama"])["needs_key"]
 
     @property
     def chat_url(self) -> str:
+        if self.protocol == "anthropic":
+            return self.base_url.rstrip("/") + "/messages"
         return self.base_url.rstrip("/") + "/chat/completions"
+
+
+PROVIDERS = {
+    "ollama": {"protocol": "openai", "base_url": "http://localhost:11434/v1",
+               "model": "gemma4:12b", "needs_key": False,
+               "blurb": "Local Ollama server. No key. `ollama pull <model>` for more."},
+    "lmstudio": {"protocol": "openai", "base_url": "http://localhost:1234/v1",
+                 "model": "local-model", "needs_key": False,
+                 "blurb": "Local LM Studio server (OpenAI-compatible endpoint)."},
+    "vllm": {"protocol": "openai", "base_url": "http://localhost:8000/v1",
+             "model": "Qwen/Qwen3-30B-A3B", "needs_key": False,
+             "blurb": "Self-hosted vLLM OpenAI-compatible server."},
+    "openai": {"protocol": "openai", "base_url": "https://api.openai.com/v1",
+               "model": "gpt-4o-mini", "needs_key": True,
+               "blurb": "OpenAI API. Needs PROF_LLM_API_KEY."},
+    "azure": {"protocol": "openai", "base_url": "",
+              "model": "", "needs_key": True,
+              "blurb": "Azure OpenAI. Set PROF_LLM_BASE_URL to your deployment URL + PROF_LLM_MODEL."},
+    "openrouter": {"protocol": "openai", "base_url": "https://openrouter.ai/api/v1",
+                   "model": "qwen/qwen3-30b-a3b:free", "needs_key": True,
+                   "blurb": "OpenRouter gateway. Needs PROF_LLM_API_KEY."},
+    "anthropic": {"protocol": "anthropic", "base_url": "https://api.anthropic.com/v1",
+                  "model": "claude-sonnet-4-5", "needs_key": True,
+                  "blurb": "Anthropic native API (translated tool format). Needs PROF_LLM_API_KEY."},
+}
 
 
 class LLMError(RuntimeError):
@@ -108,7 +156,14 @@ class LLMError(RuntimeError):
 
 def chat_complete(cfg: LLMConfig, messages: List[Dict[str, Any]],
                   tools: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
-    """One OpenAI-compatible chat-completions call. Returns the message dict."""
+    """One chat round. Returns an OpenAI-style message dict (normalized)."""
+    if cfg.protocol == "anthropic":
+        return _anthropic_complete(cfg, messages, tools)
+    return _openai_complete(cfg, messages, tools)
+
+
+def _openai_complete(cfg: LLMConfig, messages: List[Dict[str, Any]],
+                     tools: Optional[List[Dict[str, Any]]]) -> Dict[str, Any]:
     body = {"model": cfg.model, "messages": messages}
     if tools:
         body["tools"] = tools
@@ -127,6 +182,91 @@ def chat_complete(cfg: LLMConfig, messages: List[Dict[str, Any]],
         return payload["choices"][0]["message"]
     except (KeyError, IndexError) as exc:
         raise LLMError(f"unexpected LLM response shape: {str(payload)[:200]}") from exc
+
+
+def _anthropic_tools(tools: Optional[List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+    out = []
+    for t in tools or []:
+        fn = t.get("function", t)
+        out.append({"name": fn.get("name", ""), "description": fn.get("description", ""),
+                    "input_schema": fn.get("parameters", {"type": "object"})})
+    return out
+
+
+def _anthropic_complete(cfg: LLMConfig, messages: List[Dict[str, Any]],
+                        tools: Optional[List[Dict[str, Any]]]) -> Dict[str, Any]:
+    """Native Anthropic API, normalized back to OpenAI-style message dict."""
+    if cfg.needs_key and not cfg.api_key:
+        raise LLMError("anthropic provider needs PROF_LLM_API_KEY")
+    system, convo = "", []
+    for m in messages:
+        if m.get("role") == "system":
+            system += str(m.get("content") or "")
+        elif m.get("role") == "tool":
+            convo.append({"role": "user", "content": [{
+                "type": "tool_result", "tool_use_id": m.get("tool_call_id", ""),
+                "content": str(m.get("content") or "")}]})
+        elif m.get("role") == "assistant" and m.get("tool_calls"):
+            blocks: List[Dict[str, Any]] = []
+            if m.get("content"):
+                blocks.append({"type": "text", "text": str(m["content"])})
+            for tc in m["tool_calls"]:
+                fn = tc.get("function", {})
+                try:
+                    args = json.loads(fn.get("arguments", "{}"))
+                except json.JSONDecodeError:
+                    args = {}
+                blocks.append({"type": "tool_use", "id": tc.get("id", ""),
+                               "name": fn.get("name", ""), "input": args})
+            convo.append({"role": "assistant", "content": blocks})
+        else:
+            convo.append({"role": m.get("role", "user"),
+                          "content": str(m.get("content") or "")})
+    body: Dict[str, Any] = {"model": cfg.model, "max_tokens": 1024, "messages": convo}
+    if system:
+        body["system"] = system
+    at = _anthropic_tools(tools)
+    if at:
+        body["tools"] = at
+    req = urllib.request.Request(
+        cfg.chat_url, data=json.dumps(body).encode("utf-8"),
+        headers={"Content-Type": "application/json",
+                 "x-api-key": cfg.api_key, "anthropic-version": "2023-06-01"},
+        method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=cfg.timeout_s) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except Exception as exc:
+        raise LLMError(f"LLM transport error ({cfg.chat_url}): {exc}") from exc
+    try:
+        blocks = payload["content"]
+    except KeyError as exc:
+        raise LLMError(f"unexpected Anthropic response: {str(payload)[:200]}") from exc
+    text = "".join(b.get("text", "") for b in blocks if b.get("type") == "text")
+    calls = [{"id": b.get("id", ""), "type": "function",
+              "function": {"name": b.get("name", ""),
+                           "arguments": json.dumps(b.get("input", {}))}}
+             for b in blocks if b.get("type") == "tool_use"]
+    msg: Dict[str, Any] = {"role": "assistant", "content": text or None}
+    if calls:
+        msg["tool_calls"] = calls
+    return msg
+
+
+def list_models(cfg: LLMConfig) -> List[str]:
+    """Best-effort model list (OpenAI-compatible /models). Empty when unsupported."""
+    if cfg.protocol != "openai":
+        return []
+    url = cfg.base_url.rstrip("/") + "/models"
+    req = urllib.request.Request(url, headers={
+        "Content-Type": "application/json", **(
+            {"Authorization": f"Bearer {cfg.api_key}"} if cfg.api_key else {})})
+    try:
+        with urllib.request.urlopen(req, timeout=min(cfg.timeout_s, 15)) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+        return sorted(m.get("id", "") for m in payload.get("data", []) if m.get("id"))
+    except Exception:
+        return []
 
 
 def check_connectivity(cfg: LLMConfig) -> Tuple[bool, str]:

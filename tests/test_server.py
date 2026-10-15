@@ -36,6 +36,20 @@ def test_landing_redirects_to_console():
     assert r.status_code in (301, 302, 307) and r.headers["location"].endswith("/console/")
 
 
+def test_auto_approve_endpoint():
+    c = _client()
+    r = c.post("/v1/auto-approve", json={"agent": "a", "action": "tool.call",
+                                         "resource": "tool:crm.lookup",
+                                         "args": {"customer": "acme-42"}})
+    assert r.status_code == 200, r.text
+    assert r.json()["constraints"].get("auto") is True
+    r = c.post("/v1/auto-approve", json={"agent": "a", "action": "payment.transfer",
+                                         "resource": "account:krw-1",
+                                         "args": {"to": "x", "amount": 1,
+                                                  "idempotency_key": "k"}})
+    assert r.status_code == 403
+
+
 def test_approve_execute_roundtrip():
     c = _client()
     ap = c.post("/v1/approve", json={"agent": "agent:t", "action": "tool.call",

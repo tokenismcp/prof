@@ -63,16 +63,41 @@ def test_approval_queue_unknown_id():
     assert c.post("/v1/requests/req-nope/approve").status_code == 404
 
 
-def test_llm_status_unreachable_fail_closed():
+def test_llm_status_shape_and_no_key_leak():
     c = _client()
     r = c.get("/v1/llm/status")
     body = r.json()
-    assert "model" in body and "base_url" in body
-    assert body["reachable"] is False  # no LLM in test env
-    assert "api_key" not in body and "PROF_LLM_API_KEY" not in r.text
+    for k in ("provider", "model", "base_url", "reachable", "info"):
+        assert k in body, body
+    assert "api_key" not in body
+    # no key VALUE may ever leak (blurbs may name the env var — that's docs)
+    secret = os.environ.get("PROF_LLM_API_KEY", "")
+    assert not secret or secret not in r.text
 
 
-def test_agent_run_no_llm_fails_closed():
+def test_llm_config_saves_without_secrets():
+    import pathlib
+    c = _client()
+    # api keys are not even an accepted field
+    r = c.post("/v1/llm/config", json={"model": "test-model-x",
+                                       "api_key": "SHOULD-NOT-BE-ACCEPTED"})
+    assert r.status_code in (200, 422)
+    target = pathlib.Path("prof") / ".." / "configs" / "llm.env"
+    target = target.resolve()
+    try:
+        if r.status_code == 200:
+            text = target.read_text()
+            assert "test-model-x" in text
+            assert "SHOULD-NOT-BE-ACCEPTED" not in text
+            assert "API_KEY" not in text
+    finally:
+        if target.exists():
+            target.unlink()
+
+
+def test_agent_run_no_llm_fails_closed(monkeypatch):
+    monkeypatch.setenv("PROF_LLM_BASE_URL", "http://127.0.0.1:9/v1")
+    monkeypatch.setenv("PROF_LLM_PROVIDER", "ollama")
     c = _client()
     r = c.post("/v1/agent/run", json={"task": "hi", "max_steps": 2})
     assert r.status_code == 502  # LLM transport error, not a crash

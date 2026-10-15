@@ -329,24 +329,38 @@ $("btn-request").onclick = async () => {
 };
 
 /* ---------- agents: LLM + external connections ---------- */
-async function loadLLM() {
+async function loadLLM(quiet) {
   try {
     const s = await jget("/v1/llm/status");
+    $("llm-provider").textContent = s.provider || "–";
     $("llm-url").textContent = s.base_url || "–";
     $("llm-model").textContent = s.model || "–";
+    $("llm-key").textContent = s.key_present ? "set (server env)" : s.needs_key ? "missing — export PROF_LLM_API_KEY" : "not needed (local)";
     const el = $("llm-state");
     el.textContent = s.reachable ? "reachable" : "unreachable";
     el.classList.toggle("bad", !s.reachable);
-    if (!s.reachable) toast("err", "LLM unreachable", (s.info || "").slice(0, 160));
+    const pick = $("llm-pick"), cur = pick.value;
+    pick.innerHTML = '<option value="">gateway default</option>' +
+      (s.models || []).map((m) => `<option>${esc(m)}</option>`).join("");
+    if ([...pick.options].some((o) => o.value === cur)) pick.value = cur;
+    if (!s.reachable && !quiet) toast("err", "LLM unreachable", (s.info || "").slice(0, 160));
   } catch { const el = $("llm-state"); el.textContent = "unreachable"; el.classList.add("bad"); }
 }
-$("btn-llm-check").onclick = loadLLM;
+$("btn-llm-check").onclick = () => loadLLM(false);
+$("btn-llm-save").onclick = async () => {
+  const model = $("llm-pick").value;
+  if (!model) { toast("err", "Nothing to save", "pick a model first"); return; }
+  const { status, body } = await jpost("/v1/llm/config", { model });
+  if (status !== 200) { toast("err", "Save failed", JSON.stringify(body).slice(0, 160)); return; }
+  toast("ok", "Saved — restart gateway to apply", body.saved || "");
+};
 $("btn-agent-run").onclick = async () => {
   const task = $("agent-task").value.trim();
   if (!task) { toast("err", "Empty task", "describe what the agent should do"); return; }
   show("o-agent", "running model → permit → execution loop…");
   $("agent-summary").textContent = "";
-  const { status, body } = await jpost("/v1/agent/run", { task, max_steps: 8, human_approve: $("agent-human").checked });
+  const { status, body } = await jpost("/v1/agent/run", { task, max_steps: 8,
+    human_approve: $("agent-human").checked, model_override: $("llm-pick").value || "" });
   if (status !== 200) {
     show("o-agent", `HTTP ${status}\n` + JSON.stringify(body, null, 2));
     toast("err", "Agent run failed", (body.detail || "").slice(0, 160));
@@ -417,7 +431,7 @@ document.addEventListener("keydown", (e) => {
 window.addEventListener("resize", () => areaHist.length && area(areaHist[areaHist.length - 1]));
 loadPolicy();
 loadPending();
-loadLLM();
+loadLLM(true);
 refresh();
 setInterval(() => { if (!document.hidden) { refresh(); loadPending(); } }, 4000);
 setInterval(loadPolicy, 30000);

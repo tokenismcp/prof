@@ -21,7 +21,7 @@ import json
 import sys
 import time
 import traceback
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from prof.demo_tools import build_demo_gateway
 from prof.resources import crm_lookup, file_write, payment_transfer
@@ -52,25 +52,25 @@ def _tool_defs() -> list:
         },
         {
             "name": "crm.lookup",
-            "description": "Look up a customer (low-risk). Requires permit.",
+            "description": "Look up a customer (low-risk, auto-approved). Optional permit for pre-approved calls.",
             "inputSchema": {
-                "type": "object", "required": ["customer", "permit"],
+                "type": "object", "required": ["customer"],
                 "properties": {"customer": {"type": "string"}, "permit": permit_schema},
             },
         },
         {
             "name": "file.write",
-            "description": "Write a file inside the sandbox (/tmp). Requires permit.",
+            "description": "Write a file inside the sandbox. Auto-approved in /tmp; elsewhere needs a human-signed permit.",
             "inputSchema": {
-                "type": "object", "required": ["path", "content", "permit"],
+                "type": "object", "required": ["path", "content"],
                 "properties": {"path": {"type": "string"}, "content": {"type": "string"}, "permit": permit_schema},
             },
         },
         {
             "name": "payment.transfer",
-            "description": "Transfer funds (HIGH-RISK: human approval tier). Requires permit.",
+            "description": "Transfer funds (HIGH-RISK). Needs a human-signed permit: open a request first (POST /v1/requests or console Approvals).",
             "inputSchema": {
-                "type": "object", "required": ["to", "amount", "idempotency_key", "permit"],
+                "type": "object", "required": ["to", "amount", "idempotency_key"],
                 "properties": {
                     "to": {"type": "string"}, "amount": {"type": "number"},
                     "idempotency_key": {"type": "string"}, "permit": permit_schema,
@@ -156,27 +156,59 @@ class MCPServer:
             return self._text({"ok": False, "error": f"unknown tool: {name}"}, True)
         action, resource = _TOOL_BINDING[name]
         raw_permit = args.get("permit")
-        if not isinstance(raw_permit, dict):
-            return self._text({"ok": False,
-                               "error": "missing permit: call prof.approve first and pass its result as 'permit'"}, True)
         call_args = {k: v for k, v in args.items() if k != "permit"}
+        permit: Optional[Dict[str, Any]] = raw_permit if isinstance(raw_permit, dict) else None
+        if permit is None:
+            # Transparent mode: no permit round-trip for low/medium tiers.
+            # The server mints the permit itself; high-tier still needs a human.
+            auto = self._auto_permit(name, action, resource, call_args)
+            if auto is None:
+                return self._text({
+                    "ok": False,
+                    "error": f"high-tier {name}: human approval required. "
+                             "Call prof.approve is not enough — open a request "
+                             "(POST /v1/requests or console Approvals) and retry "
+                             "with the signed permit as 'permit'."}, True)
+            permit = auto
         if self.remote is not None:
             try:
-                out = self.remote.execute(action, resource, call_args, raw_permit)
+                out = self.remote.execute(action, resource, call_args, permit)
             except Exception as exc:
                 return self._text({"ok": False, "decision": str(exc)}, True)
             if not out.get("ok"):
                 return self._text({"ok": False, "decision": out.get("decision", "denied")}, True)
             return self._text(out)
         try:
-            permit = Permit.from_dict(raw_permit)
+            permit_obj = Permit.from_dict(permit)
         except Exception as exc:
             return self._text({"ok": False, "error": f"bad permit: {exc}"}, True)
         fn = self._effects[name]
-        dec, result = self.gw.execute(ExecuteRequest(action, resource, call_args, permit), fn)
+        dec, result = self.gw.execute(ExecuteRequest(action, resource, call_args, permit_obj), fn)
         if not dec.allow:
             return self._text({"ok": False, "decision": dec.reason}, True)
         return self._text({"ok": True, "decision": dec.reason, "result": result, "ledger_seq": dec.ledger_seq})
+
+    def _auto_permit(self, name: str, action: str, resource: str,
+                     call_args: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Mint a server-side permit for non-human tiers. None => human needed."""
+        agent = str(call_args.get("_agent", "agent:mcp"))
+        if self.remote is not None:
+            try:
+                return self.remote.auto_approve(agent, action, resource, call_args)
+            except Exception:
+                return None
+        pol = self.gw.policy.evaluate(action, resource, call_args)
+        if not pol.allow or pol.require_human:
+            return None
+        p = Permit(subject=self.approver.subject, agent=agent, action=action,
+                   resource=resource, args_hash=hash_args(call_args),
+                   policy_id=self.gw.policy.policy_id,
+                   expiry=int(time.time()) + 300,
+                   constraints={"auto": True})
+        p.sign(self.approver._sk)
+        self.gw.ledger.append("approve", p.nonce, p.action, p.resource,
+                              p.subject, p.agent, f"tier={pol.tier} auto via-mcp")
+        return p.to_dict()
 
     def _approve(self, args: Dict[str, Any]) -> Dict[str, Any]:
         agent = str(args.get("agent", "agent:mcp"))

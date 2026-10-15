@@ -11,7 +11,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import pytest
 
 from prof.demo_tools import build_demo_gateway
-from prof.llm import LLMConfig, chat_complete, check_connectivity, run_task
+from prof.llm import LLMConfig, TOOL_SCHEMAS, chat_complete, check_connectivity, run_task
 from prof.resources import crm_lookup, file_write, payment_transfer
 
 
@@ -57,6 +57,87 @@ def test_check_connectivity(llm_server):
     ScriptedHandler.script = [{"role": "assistant", "content": "pong"}]
     ok, info = check_connectivity(LLMConfig(base_url=llm_server))
     assert ok and "test-model" in info or ok
+
+
+def test_provider_presets_and_overrides():
+    from prof.llm import PROVIDERS
+    assert set(PROVIDERS) >= {"ollama", "openai", "anthropic", "vllm"}
+    cfg = LLMConfig(provider="openai")
+    assert cfg.chat_url == "https://api.openai.com/v1/chat/completions"
+    assert cfg.needs_key is True
+    cfg2 = LLMConfig(provider="anthropic")
+    assert cfg2.chat_url.endswith("/messages")
+    cfg3 = LLMConfig(provider="ollama", model="custom")
+    assert cfg3.model == "custom" and "11434" in cfg3.base_url
+
+
+def test_anthropic_native_roundtrip():
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    seen = {}
+
+    class H(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_POST(self):
+            n = int(self.headers.get("Content-Length", 0))
+            seen["body"] = json.loads(self.rfile.read(n))
+            seen["key"] = self.headers.get("x-api-key")
+            out = json.dumps({"content": [
+                {"type": "text", "text": "looking up"},
+                {"type": "tool_use", "id": "t1", "name": "crm.lookup",
+                 "input": {"customer": "acme-42"}}]}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(out)))
+            self.end_headers()
+            self.wfile.write(out)
+
+    srv = HTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    cfg = LLMConfig(provider="anthropic",
+                    base_url=f"http://127.0.0.1:{srv.server_port}/v1",
+                    api_key="test-key", model="test-claude")
+    msg = chat_complete(cfg, [{"role": "system", "content": "sys"},
+                              {"role": "user", "content": "hi"}],
+                        tools=TOOL_SCHEMAS)
+    assert seen["key"] == "test-key"
+    assert seen["body"]["system"] == "sys"  # system extracted
+    assert seen["body"]["tools"][0]["name"] == "crm.lookup"  # translated format
+    assert msg["tool_calls"][0]["function"]["name"] == "crm.lookup"  # normalized back
+    srv.shutdown()
+
+
+def test_anthropic_requires_key():
+    import pytest as _pt
+    cfg = LLMConfig(provider="anthropic", api_key="")
+    with _pt.raises(Exception):
+        chat_complete(cfg, [{"role": "user", "content": "hi"}])
+
+
+def test_list_models_against_stub():
+    from prof.llm import list_models
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    class MH(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_GET(self):
+            out = json.dumps({"data": [{"id": "m-b"}, {"id": "m-a"}]}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(out)))
+            self.end_headers()
+            self.wfile.write(out)
+
+    srv = HTTPServer(("127.0.0.1", 0), MH)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    models = list_models(LLMConfig(base_url=f"http://127.0.0.1:{srv.server_port}/v1"))
+    assert models == ["m-a", "m-b"]  # sorted
+    srv.shutdown()
 
 
 def test_agent_loop_executes_real_tool(llm_server):

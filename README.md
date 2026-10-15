@@ -103,7 +103,7 @@ Full design: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · policy: [`docs/PO
 | OpenCode | `integrations/opencode/opencode.json` |
 | Dots & others (shell hooks) | `prof exec -- …` / `integrations/generic/prof-gate.sh` |
 
-Two surfaces: **MCP server** (`prof mcp`, stdio, zero deps — `prof.approve` → tool call with Permit) and **shell gate** (`prof exec`, `prof decide --claude-hook`). Details + mapping table: [`docs/AGENTS.md`](docs/AGENTS.md).
+Two surfaces: **MCP server** (`prof mcp`, stdio, zero deps — transparent for low/medium, human-gated for high-tier) and **shell gate** (`prof exec`, `prof decide --claude-hook`). Details + mapping table: [`docs/AGENTS.md`](docs/AGENTS.md).
 
 ## Human approvals (high-tier workflow)
 
@@ -122,16 +122,15 @@ Query `GET /v1/requests?status=pending|all`. Every transition is ledger-logged. 
 
 ## LLM integration (API-based)
 
-Provider-agnostic agentic loop over any OpenAI-compatible API — every model-requested tool call is approved and executed through the Gateway against the real database:
+Provider-agnostic agentic loop over local or hosted models — every model-requested tool call is approved and executed through the Gateway against the real database:
 
 ```sh
-export PROF_LLM_BASE_URL=http://localhost:11434/v1 PROF_LLM_MODEL=llama3.1  # Ollama
-prof llm-check
+prof llm-setup   # probes Ollama/LM Studio, picks model, verifies
 prof agent-run "What tier is customer acme-42?"
 prof agent-run "Send 100 to acct-9" --human-approve   # high-tier needs sign-off
 ```
 
-Details: [`docs/LLM.md`](docs/LLM.md). Real state behind the tools: [`docs/DATA.md`](docs/DATA.md) (SQLite customers/accounts/payments/file registry, persistent via `PROF_DB`).
+Providers: `ollama` (default, local, no key) · `lmstudio` · `vllm` · `openai` · `azure` · `openrouter` · `anthropic` (native API, translated tools). Keys stay env-only — never logged, never in API responses. Details: [`docs/LLM.md`](docs/LLM.md). Real state behind the tools: [`docs/DATA.md`](docs/DATA.md) (SQLite customers/accounts/payments/file registry, persistent via `PROF_DB`).
 
 ## HTTP Gateway
 ```sh
@@ -189,7 +188,7 @@ scripts/         backup.sh · restore.sh
 sdk-typescript/  TS Gateway client (beta)
 bench/           local microbenchmark (env-disclosed)
 docs/            ARCHITECTURE · SECURITY_MODEL · VERIFICATION · ROADMAP · MCP · POLICY · COMPARISON · OPERATIONS · AGENTS · LLM · DATA
-tests/           58 enforcement + API + MCP + LLM + data + storage + security + e2e tests
+tests/           66 enforcement + API + MCP + LLM + data + storage + security + e2e tests
 ```
 
 ## Contributing

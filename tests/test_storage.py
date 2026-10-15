@@ -28,6 +28,27 @@ def test_nonce_journal_survives_reopen(tmp_path):
     assert ns2.check_and_reserve("abc", now, now + 9999) is False
 
 
+def test_prune_path_never_deadlocks():
+    """Regression: reserve-while-pruning must not self-deadlock.
+
+    check_and_reserve() prunes under its own guard; with a plain Lock this
+    deadlocked the whole gateway once the prune timer fired (>60 s uptime).
+    A watchdog thread fails the test instead of hanging the suite.
+    """
+    import threading
+    ns = NonceStore()
+    ns._last_prune = 0  # force the prune path on next reserve
+    done = []
+    now = int(time.time())
+    t = threading.Thread(target=lambda: done.append(
+        ns.check_and_reserve("w-1", now, now + 5)))
+    t.start()
+    t.join(timeout=10)
+    assert not t.is_alive(), "DEADLOCK: reserve blocked on its own prune"
+    assert done == [True]
+    assert ns.prune(now + 60) == 1  # expiry-bound cleanup still works
+
+
 def test_nonce_legacy_object_file_migrates(tmp_path):
     p = str(tmp_path / "n.json")
     with open(p, "w") as f:

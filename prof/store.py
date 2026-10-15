@@ -25,7 +25,10 @@ _PRUNE_SIZE_TRIGGER = 5000
 
 class NonceStore:
     def __init__(self, path: Optional[str] = None):
-        self._lock = threading.Lock()
+        # RLock: check_and_reserve() prunes under the same guard.
+        # (A plain Lock deadlocked here once the 60 s prune timer fired —
+        # caught by faulthandler during review. Never downgrade this.)
+        self._lock = threading.RLock()
         self._path = path
         self._seen: Dict[str, int] = {}  # nonce -> expiry (unix seconds)
         self._last_prune = time.time()

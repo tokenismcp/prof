@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 import secrets
+import threading
 import time
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional
@@ -40,6 +41,7 @@ class Ledger:
     def __init__(self, path: Optional[str] = None, fsync: bool = False):
         self._path = path
         self._fsync = fsync or os.environ.get("PROF_LEDGER_FSYNC", "0") == "1"
+        self._lock = threading.RLock()
         self.entries: List[LedgerEntry] = []
         if path and os.path.exists(path):
             self._load()
@@ -59,19 +61,20 @@ class Ledger:
 
     def append(self, event: str, permit_nonce: str, action: str, resource: str,
                subject: str, agent: str, detail: str = "") -> LedgerEntry:
-        seq = len(self.entries)
-        prev = self.head
-        ts = int(time.time())
-        core = {"seq": seq, "ts": ts, "event": event, "permit_nonce": permit_nonce,
-                "action": action, "resource": resource, "subject": subject,
-                "agent": agent, "detail": detail, "prev_hash": prev}
-        h = "sha256:" + hashlib.sha256(prev.encode() + _canon(core)).hexdigest()
-        e = LedgerEntry(seq=seq, ts=ts, event=event, permit_nonce=permit_nonce,
-                        action=action, resource=resource, subject=subject,
-                        agent=agent, detail=detail, prev_hash=prev, entry_hash=h)
-        self.entries.append(e)
-        self._persist(e)
-        return e
+        with self._lock:
+            seq = len(self.entries)
+            prev = self.head
+            ts = int(time.time())
+            core = {"seq": seq, "ts": ts, "event": event, "permit_nonce": permit_nonce,
+                    "action": action, "resource": resource, "subject": subject,
+                    "agent": agent, "detail": detail, "prev_hash": prev}
+            h = "sha256:" + hashlib.sha256(prev.encode() + _canon(core)).hexdigest()
+            e = LedgerEntry(seq=seq, ts=ts, event=event, permit_nonce=permit_nonce,
+                            action=action, resource=resource, subject=subject,
+                            agent=agent, detail=detail, prev_hash=prev, entry_hash=h)
+            self.entries.append(e)
+            self._persist(e)
+            return e
 
     def verify_chain(self) -> tuple[bool, str]:
         """Verify append-only integrity over EVERY entry, every time.
@@ -83,8 +86,11 @@ class Ledger:
         outgrow single-pass verification, the honest fix is segmented
         checkpointing, not skipped checks.
         """
-        prev = self._genesis_hash
-        for e in self.entries:
+        with self._lock:
+            entries = list(self.entries)
+            genesis = self._genesis_hash
+        prev = genesis
+        for e in entries:
             core = {"seq": e.seq, "ts": e.ts, "event": e.event, "permit_nonce": e.permit_nonce,
                     "action": e.action, "resource": e.resource, "subject": e.subject,
                     "agent": e.agent, "detail": e.detail, "prev_hash": e.prev_hash}

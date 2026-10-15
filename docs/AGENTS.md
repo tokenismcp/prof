@@ -15,7 +15,7 @@ Two integration surfaces. Pick one (or both — they compose).
 
 | Surface | What | For |
 |---|---|---|
-| **MCP server** (`prof mcp`, stdio, zero deps) | Agent calls `prof.approve` → gets a signed Permit → calls the tool with it. Gateway verifies every call. | Claude Code, Codex CLI, Gemini CLI, Cursor, Windsurf, Cline, VS Code, OpenCode, any MCP client |
+| **MCP server** (`prof mcp`, stdio, zero deps) | Transparent: low/medium calls just work (server-minted permits); high-tier needs a human-signed permit. Explicit `permit` arg still honored. | Claude Code, Codex CLI, Gemini CLI, Cursor, Windsurf, Cline, VS Code, OpenCode, any MCP client |
 | **Shell gate** (`prof exec` / `prof decide`) | Pre-tool hook or command wrapper. Allow runs, deny blocks (exit 3; `--claude-hook` uses 0/2). | Claude Code hooks, Dots + any agent with shell hooks, CI scripts |
 
 Policy is shared: low/medium tiers auto-flow, high tier (`payment.*`, `db.*`, `system.*`, writes outside `/tmp`) needs `--human-approve` / human sign-off. Tune in `examples/policies/default.yaml`.

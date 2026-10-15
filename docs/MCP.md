@@ -6,16 +6,21 @@ Run it: `prof mcp` (or `prof-mcp`, or `python examples/mcp_server.py`).
 It speaks JSON-RPC 2.0 over stdio (`initialize`, `tools/list`, `tools/call`,
 `ping`), verified by `tests/test_mcp.py` against the installed binary.
 
-## Pattern
+## Pattern (transparent for low/medium, explicit for high-risk)
 
 ```
-MCP client/agent (untrusted) → prof mcp → Gateway verify → SQLite tools → ledger
+MCP client/agent (usual tools, no PROF knowledge needed)
+  → prof mcp → auto-approve (low/medium, server-minted, logged) → execute
+  → high-tier without permit → request id for human sign-off → retry with permit
 ```
 
-1. Agent calls `prof.approve {agent, action, resource, args}` → signed Permit.
-2. Agent calls the tool with `{..., "permit": <Permit>}`.
-3. Tampered args → `args_hash` mismatch → deny. Replayed permit → nonce reuse → deny.
-   Missing permit → error telling the agent to approve first.
+1. Agent calls the tool directly — no permit needed for low/medium tiers.
+   The server mints the permit itself (`POST /v1/auto-approve`, `auto: true`
+   constraint, TTL capped at 300 s).
+2. Agents that already do the permit round-trip keep working: an explicit
+   `permit` argument is still honored and verified.
+3. High-tier without a human-signed permit is denied with a request path
+   (`POST /v1/requests` or console Approvals), never silently elevated.
 
 ## Tools
 

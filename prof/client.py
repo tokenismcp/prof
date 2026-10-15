@@ -69,12 +69,25 @@ class GatewayClient:
     def llm_status(self) -> dict:
         return self._call("GET", "/v1/llm/status")
 
+    def llm_config(self, provider: str = "", model: str = "",
+                   base_url: str = "") -> dict:
+        return self._call("POST", "/v1/llm/config",
+                          {"provider": provider, "model": model,
+                           "base_url": base_url})
+
     # ---- writes (token-protected when configured) ----
     def approve(self, agent: str, action: str, resource: str,
                 args: Optional[dict] = None, ttl_s: int = 300) -> dict:
         return self._call("POST", "/v1/approve",
                           {"agent": agent, "action": action, "resource": resource,
                            "args": args or {}, "ttl_s": ttl_s})
+
+    def auto_approve(self, agent: str, action: str, resource: str,
+                     args: Optional[dict] = None) -> dict:
+        """Server-minted permit for non-human tiers. 403 for high-tier."""
+        return self._call("POST", "/v1/auto-approve",
+                          {"agent": agent, "action": action, "resource": resource,
+                           "args": args or {}})
 
     def execute(self, action: str, resource: str, args: Optional[dict] = None,
                 permit: Optional[dict] = None) -> dict:
@@ -97,12 +110,15 @@ class GatewayClient:
         return self._call("POST", f"/v1/requests/{rid}/deny", {"reason": reason})
 
     def agent_run(self, task: str, max_steps: int = 8, human_approve: bool = False,
-                  wait_approval: bool = False, approval_timeout_s: int = 120) -> dict:
+                  wait_approval: bool = False, approval_timeout_s: int = 120,
+                  model_override: str = "", base_url_override: str = "") -> dict:
         return self._call("POST", "/v1/agent/run",
                           {"task": task, "max_steps": max_steps,
                            "human_approve": human_approve,
                            "wait_approval": wait_approval,
-                           "approval_timeout_s": approval_timeout_s})
+                           "approval_timeout_s": approval_timeout_s,
+                           "model_override": model_override,
+                           "base_url_override": base_url_override})
 
     def list_requests(self, status: str = "pending") -> List[dict]:
         return self._call("GET", f"/v1/requests?status={status}").get("requests", [])

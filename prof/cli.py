@@ -116,20 +116,77 @@ def audit(ledger, limit):
 
 
 @main.command("llm-check")
+@click.option("--provider", default=None)
 @click.option("--base-url", default=None)
 @click.option("--model", default=None)
-def llm_check(base_url, model):
+def llm_check(provider, base_url, model):
     """Verify connectivity to the LLM API (env PROF_LLM_* or flags)."""
-    from prof.llm import LLMConfig, check_connectivity
-    cfg = LLMConfig()
+    from prof.llm import LLMConfig, PROVIDERS, check_connectivity, list_models
+    cfg = LLMConfig(provider=provider or LLMConfig().provider)
     if base_url:
         cfg.base_url = base_url
     if model:
         cfg.model = model
     ok, info = check_connectivity(cfg)
+    click.echo(f"provider={cfg.provider} model={cfg.model} url={cfg.base_url}")
+    click.echo(info)
+    if ok:
+        models = list_models(cfg)
+        if models:
+            click.echo("models: " + ", ".join(models[:15]))
+    if provider and provider not in PROVIDERS:
+        raise click.ClickException(f"unknown provider. choices: {', '.join(PROVIDERS)}")
+    if not ok:
+        raise click.ClickException("LLM unreachable — run `prof llm-setup`")
+
+
+@main.command("llm-setup")
+def llm_setup():
+    """Interactive LLM setup: probe local servers, pick provider/model, verify."""
+    import urllib.request
+    from prof.llm import LLMConfig, PROVIDERS, check_connectivity, list_models
+    click.echo("PROF LLM setup — local first, keys stay in env.")
+    found = []
+    for name, url in (("ollama", "http://localhost:11434"), ("lmstudio", "http://localhost:1234")):
+        try:
+            urllib.request.urlopen(url + "/v1/models", timeout=3)
+            found.append(name)
+        except Exception:
+            pass
+    if found:
+        click.echo("local servers detected: " + ", ".join(found))
+    names = list(PROVIDERS)
+    for i, name in enumerate(names, 1):
+        p = PROVIDERS[name]
+        mark = " [local]" if name in found or not p["needs_key"] else ""
+        click.echo(f"  {i}. {name}{mark} — {p['blurb']}")
+    choice = click.prompt("provider number", default="1")
+    try:
+        provider = names[int(choice) - 1]
+    except (ValueError, IndexError):
+        raise click.ClickException("bad choice")
+    cfg = LLMConfig(provider=provider)
+    if cfg.needs_key and not cfg.api_key:
+        click.echo(f"set your key first: export PROF_LLM_API_KEY=…  (never stored by PROF)")
+    models = list_models(cfg)
+    if models:
+        click.echo("available models:")
+        for i, m in enumerate(models[:15], 1):
+            click.echo(f"  {i}. {m}")
+        pick = click.prompt("model number (0 = keep default)", default="0")
+        try:
+            if int(pick) > 0:
+                cfg.model = models[int(pick) - 1]
+        except (ValueError, IndexError):
+            pass
+    ok, info = check_connectivity(cfg)
     click.echo(info)
     if not ok:
-        raise click.ClickException("LLM unreachable — set PROF_LLM_BASE_URL / PROF_LLM_MODEL")
+        raise click.ClickException("unreachable — check the server/model and retry")
+    click.echo("to persist for the gateway:")
+    click.echo(f"  export PROF_LLM_PROVIDER={provider} PROF_LLM_MODEL={cfg.model}")
+    if cfg.base_url != PROVIDERS[provider]["base_url"]:
+        click.echo(f"  export PROF_LLM_BASE_URL={cfg.base_url}")
 
 
 @main.command("agent-run")

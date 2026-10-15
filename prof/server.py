@@ -172,6 +172,14 @@ class AgentRunIn(BaseModel):
     human_approve: bool = False
     wait_approval: bool = False
     approval_timeout_s: int = 120
+    model_override: str = ""
+    base_url_override: str = ""
+
+
+class LLMConfigIn(BaseModel):
+    provider: str = ""
+    model: str = ""
+    base_url: str = ""
 
 
 # In-process human-approval queue. Lost on restart by design in v0.1
@@ -237,6 +245,37 @@ def version():
         "key_source": "configured" if os.environ.get("PROF_APPROVER_PRIV") else "ephemeral",
         "ledger_head": _gateway.ledger.head,
     }
+
+
+@app.post("/v1/auto-approve")
+def auto_approve(inp: ApproveIn, _t: None = Depends(require_token)):
+    """Server-side auto-approval for NON-human tiers only (transparent agents).
+
+    Lets MCP/agent frontends execute low/medium actions without a permit
+    round-trip: the server mints the permit itself, server-side, logged.
+    High-tier actions are refused here (403) — they must go through the
+    human approval queue, so "use as usual" never silently elevates risk.
+    """
+    assert _approver and _gateway
+    dec = _gateway.policy.evaluate(inp.action, inp.resource, inp.args)
+    if not dec.allow:
+        raise HTTPException(403, f"policy deny: {dec.reason}")
+    if dec.require_human:
+        raise HTTPException(403, f"high-tier action: human approval required ({dec.reason})")
+    p = Permit(
+        subject=inp.subject or _approver.subject,
+        agent=inp.agent,
+        action=inp.action,
+        resource=inp.resource,
+        args_hash=hash_args(inp.args),
+        policy_id=_gateway.policy.policy_id,
+        expiry=int(time.time()) + min(int(inp.ttl_s), 300),
+        constraints={**inp.constraints, "auto": True},
+    )
+    p.sign(_approver._sk)
+    _gateway.ledger.append("approve", p.nonce, p.action, p.resource,
+                           p.subject, p.agent, f"tier={dec.tier} auto")
+    return p.to_dict()
 
 
 @app.post("/v1/approve")
@@ -372,11 +411,42 @@ def deny_request(rid: str, inp: DenyIn, _t: None = Depends(require_token)):
 # ---- LLM agent surface ----
 @app.get("/v1/llm/status")
 def llm_status():
-    from prof.llm import LLMConfig, check_connectivity
+    from prof.llm import LLMConfig, PROVIDERS, check_connectivity, list_models
     cfg = LLMConfig()
     ok, info = check_connectivity(cfg)
     return {"configured": True, "reachable": ok, "info": info,
-            "model": cfg.model, "base_url": cfg.base_url}
+            "provider": cfg.provider, "model": cfg.model, "base_url": cfg.base_url,
+            "needs_key": cfg.needs_key, "key_present": bool(cfg.api_key),
+            "models": list_models(cfg) if ok else [],
+            "providers": {k: {"protocol": v["protocol"], "needs_key": v["needs_key"],
+                              "blurb": v["blurb"]} for k, v in PROVIDERS.items()}}
+
+
+@app.post("/v1/llm/config")
+def llm_config(inp: LLMConfigIn, _t: None = Depends(require_token)):
+    """Persist provider/model/base_url (never api keys) to configs/llm.env.
+
+    Takes effect on gateway restart. API keys stay environment-only by design.
+    """
+    import pathlib as _pl
+    from prof.llm import PROVIDERS
+    allowed = {"provider", "model", "base_url"}
+    data = {k: v for k, v in inp.model_dump().items() if k in allowed and v}
+    if "provider" in data and data["provider"] not in PROVIDERS:
+        raise HTTPException(400, f"unknown provider (see /v1/llm/status)")
+    cfg_dir = _pl.Path(__file__).resolve().parent.parent / "configs"
+    cfg_dir.mkdir(exist_ok=True)
+    lines = []
+    if "provider" in data:
+        lines.append(f"PROF_LLM_PROVIDER={data['provider']}")
+    if "model" in data:
+        lines.append(f"PROF_LLM_MODEL={data['model']}")
+    if "base_url" in data:
+        lines.append(f"PROF_LLM_BASE_URL={data['base_url']}")
+    with open(cfg_dir / "llm.env", "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    return {"saved": str(cfg_dir / "llm.env"),
+            "note": "restart the gateway to apply; API keys are never stored here"}
 
 
 @app.post("/v1/agent/run")
@@ -387,11 +457,16 @@ def agent_run(inp: AgentRunIn, _t: None = Depends(require_token)):
     approve_fn = None
     if inp.wait_approval and not inp.human_approve:
         approve_fn = _queue_wait_approver(timeout_s=max(5, min(inp.approval_timeout_s, 600)))
+    cfg = LLMConfig()
+    if inp.model_override:
+        cfg.model = inp.model_override
+    if inp.base_url_override:
+        cfg.base_url = inp.base_url_override
     try:
         res = run_task(inp.task, _approver, _gateway,
                        {"crm.lookup": crm_lookup, "file.write": file_write,
                         "payment.transfer": payment_transfer},
-                       cfg=LLMConfig(), max_steps=max(1, min(inp.max_steps, 12)),
+                       cfg=cfg, max_steps=max(1, min(inp.max_steps, 12)),
                        human_approve=inp.human_approve, approve_fn=approve_fn)
     except LLMError as exc:
         raise HTTPException(502, str(exc))
