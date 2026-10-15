@@ -1,0 +1,7 @@
+# ~/.codex/config.toml — add this block, then restart Codex CLI.
+[mcp_servers.prof]
+command = "prof"
+args = ["mcp"]
+# Codex routes tool calls through MCP; PROF issues the Permit (prof.approve)
+# and verifies every call server-side. High-tier actions (payment.*, db.*,
+# system.*) are denied without human sign-off — see docs/AGENTS.md.

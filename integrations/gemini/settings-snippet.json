@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "prof": {
+      "command": "prof",
+      "args": ["mcp"],
+      "timeout": 30
+    }
+  }
+}

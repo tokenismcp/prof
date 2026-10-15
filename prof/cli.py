@@ -102,5 +102,135 @@ def version():
     click.echo(f"prof {__version__}")
 
 
+@main.command("mcp")
+def mcp_cmd():
+    """Run the PROF MCP stdio server (for Claude Code, Codex, Gemini, Cursor, …)."""
+    from prof.mcpd import serve_stdio
+    serve_stdio()
+
+
+@main.command()
+@click.option("--agent", default="agent:cli", show_default=True)
+@click.option("--action", required=True, help="e.g. tool.call, file.write, payment.transfer")
+@click.option("--resource", required=True, help="e.g. tool:crm.lookup, file:/tmp/**, account:krw-1")
+@click.option("--args", "args_json", default="{}", show_default=True, help="JSON object")
+@click.option("--ttl", default=300, show_default=True)
+def approve(agent, action, resource, args_json, ttl):
+    """Issue a signed Permit (prints JSON). Agents pass it to the tool call."""
+    import json as _json
+    from prof.demo_tools import build_demo_gateway
+    from prof.permit import Permit, hash_args
+    approver, gw = build_demo_gateway()
+    try:
+        args = _json.loads(args_json)
+        assert isinstance(args, dict)
+    except Exception:
+        raise click.ClickException("--args must be a JSON object")
+    pol = gw.policy.evaluate(action, resource, args)
+    if not pol.allow:
+        raise click.ClickException(f"policy deny: {pol.reason}")
+    import time as _t
+    p = Permit(subject=approver.subject, agent=agent, action=action, resource=resource,
+               args_hash=hash_args(args), policy_id=gw.policy.policy_id,
+               expiry=int(_t.time()) + ttl)
+    p.sign(approver._sk)
+    click.echo(_json.dumps(p.to_dict(), indent=2))
+
+
+@main.command(context_settings={"ignore_unknown_options": True, "allow_extra_args": True})
+@click.option("--agent", default="agent:cli")
+@click.option("--action", required=True)
+@click.option("--resource", required=True)
+@click.option("--args", "args_json", default="{}")
+@click.option("--human-approve", is_flag=True, default=False,
+              help="assert a human approved this run (required for high tier)")
+@click.pass_context
+def exec(ctx, agent, action, resource, args_json, human_approve):
+    """Approve + run a shell command only if the Gateway allows it.
+
+    Example: prof exec --action tool.call --resource tool:shell --args '{"cmd":"ls"}' -- ls -la
+    """
+    import json as _json
+    import subprocess as _sp
+    import time as _t
+    from prof.demo_tools import build_demo_gateway
+    from prof.gateway import ExecuteRequest
+    from prof.permit import Permit, hash_args
+    cmd = ctx.args
+    if cmd and cmd[0] == "--":
+        cmd = cmd[1:]
+    if not cmd:
+        raise click.ClickException("no command given after --")
+    try:
+        args = _json.loads(args_json)
+        assert isinstance(args, dict)
+    except Exception:
+        raise click.ClickException("--args must be a JSON object")
+    args = dict(args, _cmd=cmd)
+    approver, gw = build_demo_gateway()
+    pol = gw.policy.evaluate(action, resource, args)
+    if not pol.allow:
+        click.echo(f"DENY: {pol.reason}", err=True)
+        raise SystemExit(3)
+    if pol.require_human and not human_approve:
+        click.echo(f"DENY: high-tier action needs a human: re-run with --human-approve ({pol.reason})", err=True)
+        raise SystemExit(3)
+    p = Permit(subject=agent if agent.startswith("user:") else approver.subject,
+               agent=agent, action=action, resource=resource,
+               args_hash=hash_args(args), policy_id=gw.policy.policy_id,
+               expiry=int(_t.time()) + 300)
+    p.sign(approver._sk)
+    dec, _ = gw.execute(ExecuteRequest(action, resource, args, p), lambda a: {"cmd": cmd})
+    if not dec.allow:
+        click.echo(f"DENY: {dec.reason}", err=True)
+        raise SystemExit(3)
+    click.echo(f"ALLOW: {dec.reason}", err=True)
+    r = _sp.run(cmd)
+    raise SystemExit(r.returncode)
+
+
+@main.command()
+@click.option("--action", required=True)
+@click.option("--resource", required=True)
+@click.option("--args", "args_json", default="{}")
+@click.option("--claude-hook", is_flag=True, default=False,
+              help="Claude Code PreToolUse format: exit 0 allow / exit 2 block")
+def decide(action, resource, args_json, claude_hook):
+    """Decide allow/deny for action/resource/args without running anything.
+
+    Used by agent hooks (Claude Code PreToolUse, generic pre-tool gates).
+    """
+    import json as _json
+    import time as _t
+    from prof.demo_tools import build_demo_gateway
+    from prof.gateway import ExecuteRequest
+    from prof.permit import Permit, hash_args
+    try:
+        args = _json.loads(args_json)
+        assert isinstance(args, dict)
+    except Exception:
+        args = {}
+    approver, gw = build_demo_gateway()
+    pol = gw.policy.evaluate(action, resource, args)
+    allow, reason = False, f"policy deny: {pol.reason}" if not pol.allow else ""
+    if pol.allow:
+        if pol.require_human:
+            reason = f"high-tier action requires human approval ({pol.reason}); run `prof approve` + human sign-off first"
+        else:
+            p = Permit(subject=approver.subject, agent="agent:hook", action=action,
+                       resource=resource, args_hash=hash_args(args),
+                       policy_id=gw.policy.policy_id, expiry=int(_t.time()) + 300)
+            p.sign(approver._sk)
+            dec, _ = gw.execute(ExecuteRequest(action, resource, args, p), lambda a: {"ok": True})
+            allow, reason = dec.allow, dec.reason
+    if claude_hook:
+        if allow:
+            raise SystemExit(0)
+        click.echo(f"PROF blocked this action: {reason}", err=True)
+        raise SystemExit(2)
+    click.echo(_json.dumps({"allow": allow, "reason": reason}))
+    raise SystemExit(0 if allow else 3)
+
+
 if __name__ == "__main__":
     main()

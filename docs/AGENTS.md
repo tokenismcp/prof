@@ -1,0 +1,69 @@
+# Agent Integrations — put PROF in front of any agent
+
+Two integration surfaces. Pick one (or both — they compose).
+
+| Surface | What | For |
+|---|---|---|
+| **MCP server** (`prof mcp`, stdio, zero deps) | Agent calls `prof.approve` → gets a signed Permit → calls the tool with it. Gateway verifies every call. | Claude Code, Codex CLI, Gemini CLI, Cursor, Windsurf, Cline, VS Code, OpenCode, any MCP client |
+| **Shell gate** (`prof exec` / `prof decide`) | Pre-tool hook or command wrapper. Allow runs, deny blocks (exit 3; `--claude-hook` uses 0/2). | Claude Code hooks, Dots + any agent with shell hooks, CI scripts |
+
+Policy is shared: low/medium tiers auto-flow, high tier (`payment.*`, `db.*`, `system.*`, writes outside `/tmp`) needs `--human-approve` / human sign-off. Tune in `examples/policies/default.yaml`.
+
+## 1 · Claude Code
+
+**MCP (project scope):** copy `integrations/claude-code/.mcp.json` into your project, or user scope:
+```sh
+claude mcp add prof -- prof mcp
+```
+
+**PreToolUse hook** (recommended — gates Write/Edit/Bash automatically):
+1. `pip install -e /path/to/prof` (puts `prof` on PATH)
+2. Merge `integrations/claude-code/settings-snippet.json` into `~/.claude/settings.json`
+   (fix the hook path to your checkout), or project `.claude/settings.json`.
+3. Test: `echo '{"tool_name":"Bash","tool_input":{"command":"ls"}}' | python3 integrations/claude-code/prof-hook.py; echo "exit=$?"` → `exit=0`.
+4. High-tier: `echo '{"tool_name":"Write","tool_input":{"file_path":"/etc/pwn"}}' | …` → `exit=2` + reason.
+5. Strict mode (block unmapped tools too): `PROF_STRICT=1`.
+
+## 2 · Codex CLI (OpenAI)
+
+Append `integrations/codex/config-snippet.toml` to `~/.codex/config.toml`, restart `codex`. Tools appear as `prof/*`. Flow in-chat: *"approve crm lookup for acme-42, then call it with the permit"*.
+
+## 3 · Gemini CLI (Google)
+
+Merge `integrations/gemini/settings-snippet.json` `mcpServers` into `~/.gemini/settings.json`, restart. Same `prof.approve` → tool flow.
+
+## 4 · Cursor / Windsurf / Cline / VS Code
+
+Copy `integrations/cursor/mcp.json` content into the client's MCP config
+(`.cursor/mcp.json`, Windsurf `mcp_config.json`, Cline MCP settings, VS Code `mcp.json`). Restart the client/Agent.
+
+## 5 · OpenCode
+
+Merge `integrations/opencode/opencode.json` `mcp` block into `opencode.json`. Run with `opencode run "use prof.approve, then call the tool"`.
+
+## 6 · Dots & any shell-hook agent (generic)
+
+```sh
+export PROF_ACTION=tool.call PROF_RESOURCE='tool:shell' PROF_ARGS='{"cmd":"deploy"}'
+sh integrations/generic/prof-gate.sh   # exit 0 allow / 2 block
+# or wrap a command end-to-end (high tier needs --human-approve):
+prof exec --action tool.call --resource tool:shell --args '{"cmd":"deploy"}' -- ./deploy.sh
+```
+
+## Tool → PROF mapping (hooks)
+
+| Agent tool | PROF action / resource | Tier |
+|---|---|---|
+| Write/Edit (any path) | `file.write` / `file:<path>` | medium in `/tmp`, **high (block)** elsewhere |
+| Bash / shell | `tool.call` / `tool:shell` | medium (auto) |
+| WebFetch/Search | `tool.call` / `tool:web.fetch` | medium (auto) |
+| Read/Glob/Grep | `tool.call` / `tool:code.read` | low (auto) |
+| payment/db/system | as-is | **high (block)** without human |
+
+## Troubleshooting
+
+- `prof: command not found` → `pip install -e /path/to/prof`, ensure the bin dir is on PATH (or use `python -m prof …`).
+- MCP client shows no tools → restart the client after config change; run `prof mcp` manually and send `{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}` to smoke-test.
+- Hook blocks everything → check `PROF_STRICT`; unmapped tools pass by default.
+- Permit rejected as expired → TTL (default 300s) too short for long tasks; raise `--ttl` / `ttl_s`.
+- `deny: policy version mismatch` → policy file changed; re-approve outstanding permits.

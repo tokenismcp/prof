@@ -93,8 +93,20 @@ Allow  = VerifyProof ∧ Match ∧ PolicyAllow ∧ Fresh(nonce) ∧ NotExpired
 
 Full design: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · policy: [`docs/POLICY.md`](docs/POLICY.md) · MCP: [`docs/MCP.md`](docs/MCP.md)
 
-## HTTP Gateway
+## Agent integrations
 
+| Agent | Setup |
+|---|---|
+| Claude Code | `claude mcp add prof -- prof mcp` + PreToolUse hook (`integrations/claude-code/`) |
+| Codex CLI | append `integrations/codex/config-snippet.toml` to `~/.codex/config.toml` |
+| Gemini CLI | merge `integrations/gemini/settings-snippet.json` into `~/.gemini/settings.json` |
+| Cursor / Windsurf / Cline / VS Code | `integrations/cursor/mcp.json` |
+| OpenCode | `integrations/opencode/opencode.json` |
+| Dots & others (shell hooks) | `prof exec -- …` / `integrations/generic/prof-gate.sh` |
+
+Two surfaces: **MCP server** (`prof mcp`, stdio, zero deps — `prof.approve` → tool call with Permit) and **shell gate** (`prof exec`, `prof decide --claude-hook`). Details + mapping table: [`docs/AGENTS.md`](docs/AGENTS.md).
+
+## HTTP Gateway
 ```sh
 curl -s localhost:8091/version
 curl -s -X POST localhost:8091/v1/approve -H 'content-type: application/json' \
