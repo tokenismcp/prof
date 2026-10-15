@@ -10,3 +10,9 @@ build/
 .ruff_cache/
 .DS_Store
 bench/results/
+# never commit live secrets or state
+configs/prof.env
+configs/llm.env
+data/
+*.db
+*.jsonl

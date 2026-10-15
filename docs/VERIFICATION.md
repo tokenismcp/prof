@@ -2,7 +2,7 @@
 
 ## Status: Developer Preview — reproducible, not certified
 
-- `python -m pytest -q` — 66 tests: enforcement, tamper/replay/expiry/scope,
+- `python -m pytest -q` — 72 tests: enforcement, tamper/replay/expiry/scope,
   SQLite persistence/idempotency/funds, nonce expiry-prune + journal + legacy
   migration, ledger JSONL + legacy load + tamper-anywhere detection, MCP
   protocol (against the installed binary), LLM loop (allow/deny/human paths),

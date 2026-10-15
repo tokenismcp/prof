@@ -13,7 +13,7 @@
   <img alt="status" src="https://img.shields.io/badge/status-developer%20preview-orange" />
 </p>
 
-> AI should reason freely — but only **approved actions** may execute. PROF binds every side-effect (tool call, file write, payment, DB change) to a signed, scoped, single-use **Permit**, verified at a server-side **Gateway** and recorded in a tamper-evident **Ledger**.
+> AI should reason freely — but only **approved actions** may execute. PROF binds every side-effect (tool call, file write, payment) to a signed, scoped, single-use **Permit**, verified at a server-side **Gateway** and recorded in a tamper-evident **Ledger**.
 
 ---
 
@@ -22,7 +22,7 @@
 ```sh
 git clone https://github.com/4chains-inc/prof && cd prof
 sh integrations/install.sh   # installs + verifies + prints MCP JSON (works on old pip too)
-python -m prof demo
+prof demo
 ```
 
 Real output:
@@ -52,7 +52,7 @@ python -m prof gateway                # HTTP gateway on :8091
 
   - *Overview*: allow/deny KPIs, decision-mix donut, activity chart, live events, compact verification checks, approver identity (subject, key source, fingerprint) + pending human approvals with one-click sign/deny
   - *Approve & Execute*: 3-step workflow with permit inspector (expiry countdown, args-hash, nonce) + copy + copy-as-curl + human-approval request with auto-poll
-  - *Agents & LLM*: provider/model selection (7 presets, per-run override or save-to-gateway), connection status, in-browser task runner with wait-for-approval, remote MCP self-test + endpoint URL, per-agent setup panes (Dots/Muse/Claude/Codex/Gemini/Cursor/hook)
+  - *Agents & LLM*: provider/model selection (8 presets, per-run override or save-to-gateway), connection status, in-browser task runner with wait-for-approval, remote MCP self-test + endpoint URL, per-agent setup panes (Dots/Muse/Claude/Codex/Gemini/Cursor/hook)
   - *Ledger*: filter by event, full-text search, click any row for the hash-linked entry detail, JSON export
   - *Policy*: tier badges, caps, default-deny note
 
@@ -131,7 +131,7 @@ prof agent-run "What tier is customer acme-42?"
 prof agent-run "Send 100 to acct-9" --human-approve   # high-tier needs sign-off
 ```
 
-Providers: `ollama` (default, local, no key) · `lmstudio` · `vllm` · `openai` · `azure` · `openrouter` · `anthropic` (native API, translated tools). Keys stay env-only — never logged, never in API responses. Details: [`docs/LLM.md`](docs/LLM.md). Real state behind the tools: [`docs/DATA.md`](docs/DATA.md) (SQLite customers/accounts/payments/file registry, persistent via `PROF_DB`).
+Providers: `ollama` (default, local, no key) · `lmstudio` · `vllm` · `openai` · `azure` · `openrouter` · `anthropic` (native API, translated tools) · `gemini`. Keys stay env-only — never logged, never in API responses. Details: [`docs/LLM.md`](docs/LLM.md). Real state behind the tools: [`docs/DATA.md`](docs/DATA.md) (SQLite customers/accounts/payments/file registry, persistent via `PROF_DB`).
 
 ## HTTP Gateway
 ```sh
@@ -154,7 +154,7 @@ Set `PROF_API_TOKEN` and all writes + the approval queue require Bearer auth (co
 
 What PROF proves: permit authenticity + integrity (Ed25519), request-permit match, freshness, expiry, policy-version binding, and a hash-chained audit trail.
 
-What it does **not** claim: model-output correctness, universal prompt-injection immunity, "100% blocking", or fixed microsecond overhead. Earlier internal notes ("12.4µs", "~200 scenarios") lack published env/code/taxonomy — so they are **not** product claims. Reproduce locally: `python -m pytest -q`, `python bench/bench.py` (prints env + p50/p95).
+What it does **not** claim: model-output correctness, universal prompt-injection immunity, "100% blocking", or fixed microsecond overhead. Earlier internal notes ("12.4µs", "~200 scenarios") lack published env/code/taxonomy — so they are **not** product claims. Reproduce locally: `python -m pytest -q`, `PYTHONPATH=. python3 bench/bench.py` (prints env + p50/p95).
 
 Details: [`docs/SECURITY_MODEL.md`](docs/SECURITY_MODEL.md) · [`docs/VERIFICATION.md`](docs/VERIFICATION.md) · [`docs/COMPARISON.md`](docs/COMPARISON.md)
 
@@ -170,8 +170,8 @@ Details: [`docs/SECURITY_MODEL.md`](docs/SECURITY_MODEL.md) · [`docs/VERIFICATI
 
 ## Roadmap
 
-- **v0.1 Developer Preview** (here): Core, Gateway, MCP adapter, CLI, 3 reference workflows
-- **Beta**: EHCT adapter, approval UI, audit console, quorum, load/fault tests
+- **v0.1 Developer Preview** (here): Core, Gateway, MCP + remote MCP, CLI, console, approval queue, LLM loop, 3 reference workflows
+- **Beta**: EHCT adapter, quorum approvals, persistent queue, load/fault tests, segmented ledger checkpoints
 - **Enterprise**: KMS/HSM, HA stores, SSO/IAM, external assessment
 - **Ecosystem**: LangChain/LlamaIndex adapters, TS SDK parity
 
@@ -180,16 +180,17 @@ See [`docs/ROADMAP.md`](docs/ROADMAP.md). Open-core: this repo (MIT) is the comm
 ## Repo layout
 
 ```
-prof/            core (permit/policy/gateway/ledger/store/identity/server/cli/resources/llm/mcpd/console)
+prof/            core (permit/policy/gateway/ledger/store/identity/server/cli/client/resources/llm/mcpd/mcp_http/console)
 examples/        01_tool_call · 02_file_modify · 03_payment_request · mcp_server · policies/
-integrations/    claude-code · codex · gemini · cursor · opencode · generic + install.sh
+integrations/    claude-code · codex · gemini · cursor · opencode · dots · muse · generic + install.sh
 deploy/          k8s.yaml · Caddyfile (TLS edge)
 configs/         prof.env.example (production env template)
 scripts/         backup.sh · restore.sh
 sdk-typescript/  TS Gateway client (beta)
+papers/          PROF-whitepaper-v0.1.md (this paper)
 bench/           local microbenchmark (env-disclosed)
 docs/            ARCHITECTURE · SECURITY_MODEL · VERIFICATION · ROADMAP · MCP · POLICY · COMPARISON · OPERATIONS · AGENTS · LLM · DATA
-tests/           66 enforcement + API + MCP + LLM + data + storage + security + e2e tests
+tests/           72 enforcement + API + MCP + LLM + data + storage + security + e2e tests
 ```
 
 ## Contributing

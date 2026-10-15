@@ -27,7 +27,7 @@ from prof.resources import crm_lookup, file_write, get_db, payment_transfer
 from prof.gateway import ExecuteRequest, Gateway
 from prof.identity import Approver
 from prof.ledger import Ledger
-from prof.permit import Permit, b64_pubkey, hash_args, load_privkey
+from prof.permit import Permit, b64_pubkey, hash_args
 from prof.policy import DEFAULT_POLICY
 from prof.store import NonceStore
 

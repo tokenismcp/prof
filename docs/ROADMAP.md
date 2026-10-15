@@ -1,14 +1,15 @@
 # PROF Roadmap
 
 ## Phase 1 — Developer Preview (this release, v0.1)
-- [x] Core SDK, Gateway, sample policy, CLI, MCP adapter
-- [x] 3 demos (normal allow / tamper deny / replay deny)
-- [x] Basic threat tests + ledger verification
+- [x] Core SDK, Gateway, sample policy, CLI, MCP adapter (stdio + remote HTTP)
+- [x] 3 reference workflows + full demo (allow / tamper / replay / amount-tamper)
+- [x] Threat tests + ledger verification + SQLite resource layer
+- [x] Console dashboard, approval queue UI, LLM loop, agent integrations
 
 ## Phase 2 — Public Beta
-- [ ] EHCT adapter (privacy-preserving budget proofs), approval UI, audit console
-- [ ] Multi-agent scoping, quorum approvals, SSO (OIDC)
-- [ ] Load/fault tests, external pilot, published benchmark with env disclosure
+- [ ] EHCT adapter (privacy-preserving budget proofs)
+- [ ] Multi-agent scoping, quorum approvals, SSO (OIDC), persistent queue
+- [ ] External pilot, segmented ledger checkpoints
 
 ## Phase 3 — Enterprise
 - [ ] KMS/HSM + key rotation, Postgres/etcd linearizable nonce store, HA gateway
