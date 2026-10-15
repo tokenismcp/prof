@@ -31,7 +31,7 @@ from prof.permit import Permit, b64_pubkey, hash_args
 from prof.policy import DEFAULT_POLICY
 from prof.store import NonceStore
 
-VERSION = "0.1.0"
+VERSION = "1.0.0"
 
 app = FastAPI(title="PROF Gateway", version=VERSION)
 

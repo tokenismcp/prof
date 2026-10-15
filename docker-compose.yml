@@ -1,7 +1,7 @@
 services:
   gateway:
     build: .
-    image: prof-gateway:0.1.0
+    image: prof-gateway:1.0.0
     ports:
       - "127.0.0.1:8091:8091"
     env_file:

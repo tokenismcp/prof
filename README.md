@@ -10,7 +10,7 @@
   <img alt="python" src="https://img.shields.io/badge/python-3.9%2B-blue" />
   <img alt="license" src="https://img.shields.io/badge/license-MIT-green" />
   <img alt="ci" src="https://img.shields.io/badge/ci-passing-brightgreen" />
-  <img alt="status" src="https://img.shields.io/badge/status-developer%20preview-orange" />
+  <img alt="status" src="https://img.shields.io/badge/status-stable-brightgreen" />
 </p>
 
 > AI should reason freely — but only **approved actions** may execute. PROF binds every side-effect (tool call, file write, payment) to a signed, scoped, single-use **Permit**, verified at a server-side **Gateway** and recorded in a tamper-evident **Ledger**.
@@ -170,7 +170,7 @@ Details: [`docs/SECURITY_MODEL.md`](docs/SECURITY_MODEL.md) · [`docs/VERIFICATI
 
 ## Roadmap
 
-- **v0.1 Developer Preview** (here): Core, Gateway, MCP + remote MCP, CLI, console, approval queue, LLM loop, 3 reference workflows
+- **v1.0** (here): Core, Gateway, MCP + remote MCP, CLI, console, approval queue, LLM loop, 3 reference workflows
 - **Beta**: EHCT adapter, quorum approvals, persistent queue, load/fault tests, segmented ledger checkpoints
 - **Enterprise**: KMS/HSM, HA stores, SSO/IAM, external assessment
 - **Ecosystem**: LangChain/LlamaIndex adapters, TS SDK parity
@@ -187,10 +187,10 @@ deploy/          k8s.yaml · Caddyfile (TLS edge)
 configs/         prof.env.example (production env template)
 scripts/         backup.sh · restore.sh
 sdk-typescript/  TS Gateway client (beta)
-papers/          PROF-whitepaper-v0.1.md (this paper)
+papers/          PROF-whitepaper-v1.0.md (this paper)
 bench/           local microbenchmark (env-disclosed)
 docs/            ARCHITECTURE · SECURITY_MODEL · VERIFICATION · ROADMAP · MCP · POLICY · COMPARISON · OPERATIONS · AGENTS · LLM · DATA
-tests/           72 enforcement + API + MCP + LLM + data + storage + security + e2e tests
+tests/           80 enforcement + API + MCP + LLM + data + storage + security + e2e + release + i18n tests
 ```
 
 ## Contributing
@@ -199,4 +199,4 @@ Fail-closed first, no absolute claims, small reviewable PRs. See [`CONTRIBUTING.
 
 ---
 
-<p align="center"><b>Think Freely. Act With Proof.</b> — 4Chains Inc., PROF v0.1 Developer Preview.<br/>Standalone from HCCAI; inherits its one-shot capability + hash-chain audit ideas. EHCT is an integration candidate, not a replacement for signatures or enforcement.</p>
+<p align="center"><b>Think Freely. Act With Proof.</b> — 4Chains Inc., PROF v1.0.<br/>Standalone from HCCAI; inherits its one-shot capability + hash-chain audit ideas. EHCT is an integration candidate, not a replacement for signatures or enforcement.</p>

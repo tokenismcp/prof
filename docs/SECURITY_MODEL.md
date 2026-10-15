@@ -11,7 +11,7 @@
 
 - Model-output correctness, prompt-injection immunity in general, or external-system integrity.
 - "100% blocking" or microsecond overhead as universal guarantees. See `docs/VERIFICATION.md`.
-- Multi-node HA, HSM attestation, or formal verification in v0.1.
+- Multi-node HA, HSM attestation, or formal verification in v1.0.
 
 ## Threats handled (with tests)
 

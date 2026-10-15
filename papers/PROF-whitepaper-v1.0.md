@@ -1,7 +1,7 @@
 # PROF: Proof-Required Operation Framework
 ## Cryptographic execution control for AI agents
 
-**4Chains Inc. · Technical Whitepaper v0.1 · October 2026**
+**4Chains Inc. · Technical Whitepaper v1.0 · October 2026**
 Companion to the open-source implementation: `https://github.com/4chains-inc/prof`
 
 > This paper describes exactly what the accompanying code does. Every

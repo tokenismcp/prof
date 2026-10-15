@@ -1,6 +1,6 @@
 # PROF Operations (production runbook)
 
-## Deploy (compose, recommended for v0.1)
+## Deploy (compose, recommended for v1.0)
 
 ```sh
 cp configs/prof.env.example configs/prof.env   # fill PROF_APPROVER_PRIV (never commit)
@@ -55,4 +55,4 @@ a live chain — verification would (correctly) fail.
 
 ## Upgrade
 
-Pull image → `docker compose up -d` (single replica, few seconds downtime in v0.1; HA is Beta roadmap). Ledger/nonces persist in the named volume.
+Pull image → `docker compose up -d` (single replica, few seconds downtime in v1.0; HA is Beta roadmap). Ledger/nonces persist in the named volume.

@@ -13,15 +13,16 @@
   <div class="hwrap">
     <a class="brand" href="/console/" title="PROF console"><img src="logo.png" alt="PROF" /></a>
     <nav class="tabs" id="tabs">
-      <button data-tab="overview" class="on">Overview</button>
-      <button data-tab="operate">Approve &amp; Execute</button>
-      <button data-tab="agents">Agents &amp; LLM</button>
-      <button data-tab="ledger">Ledger</button>
-      <button data-tab="policy">Policy</button>
+      <button data-tab="overview" class="on" data-i18n="tabs.overview">Overview</button>
+      <button data-tab="operate" data-i18n="tabs.operate">Approve &amp; Execute</button>
+      <button data-tab="agents" data-i18n="tabs.agents">Agents &amp; LLM</button>
+      <button data-tab="ledger" data-i18n="tabs.ledger">Ledger</button>
+      <button data-tab="policy" data-i18n="tabs.policy">Policy</button>
     </nav>
     <div class="hstatus">
+      <button class="lock" id="btn-lang" title="한국어 / English">한</button>
       <button class="lock" id="btn-key" title="Set API token (required when PROF_API_TOKEN is set on the gateway)"><svg viewBox="0 0 20 20"><rect x="4.5" y="9" width="11" height="8" rx="2"/><path d="M7 9V6.8a3 3 0 0 1 6 0V9"/></svg></button>
-      <span class="health" id="health"><span class="dot gray"></span><span id="health-t">connecting</span></span>
+      <span class="health" id="health"><span class="dot gray"></span><span id="health-t" data-i18n="st.connecting">connecting</span></span>
       <span class="ver" id="h-version">…</span>
     </div>
   </div>
@@ -38,45 +39,45 @@
   <!-- OVERVIEW -->
   <section id="tab-overview" class="tab on">
     <div class="kpis">
-      <div class="kpi"><div class="k">Allowed <span class="delta" id="d-allow"></span></div><div class="v ok" id="k-allow">–</div><div class="s">approved executions</div></div>
-      <div class="kpi"><div class="k">Denied <span class="delta" id="d-deny"></span></div><div class="v bad" id="k-deny">–</div><div class="s">blocked requests</div></div>
-      <div class="kpi"><div class="k">Ledger entries</div><div class="v" id="k-ledger">–</div><div class="s" id="k-chain">chain: checking…</div></div>
-      <div class="kpi"><div class="k">Policy</div><div class="v small" id="k-policy">–</div><div class="s">permits bound to this version</div></div>
+      <div class="kpi"><div class="k"><span data-i18n="kpi.allowed">Allowed</span> <span class="delta" id="d-allow"></span></div><div class="v ok" id="k-allow">–</div><div class="s" data-i18n="kpi.allowed.s">approved executions</div></div>
+      <div class="kpi"><div class="k"><span data-i18n="kpi.denied">Denied</span> <span class="delta" id="d-deny"></span></div><div class="v bad" id="k-deny">–</div><div class="s" data-i18n="kpi.denied.s">blocked requests</div></div>
+      <div class="kpi"><div class="k" data-i18n="kpi.ledger">Ledger entries</div><div class="v" id="k-ledger">–</div><div class="s" id="k-chain">chain: checking…</div></div>
+      <div class="kpi"><div class="k" data-i18n="kpi.policy">Policy</div><div class="v small" id="k-policy">–</div><div class="s" data-i18n="kpi.policy.s">permits bound to this version</div></div>
     </div>
     <div class="grid2">
       <div class="panel">
-        <div class="phead"><h2>Decision activity</h2><span class="hint">per poll · this session</span></div>
+        <div class="phead"><h2 data-i18n="h.activity">Decision activity</h2><span class="hint" data-i18n="h.activity.h">per poll · this session</span></div>
         <canvas id="area" width="640" height="220"></canvas>
-        <div class="legend"><span><i class="sw ok"></i>allow</span><span><i class="sw bad"></i>deny</span></div>
+        <div class="legend"><span><i class="sw ok"></i><span data-i18n="legend.allowed">allow</span></span><span><i class="sw bad"></i><span data-i18n="legend.denied">deny</span></span></div>
       </div>
       <div class="panel">
-        <div class="phead"><h2>Decision mix</h2></div>
+        <div class="phead"><h2 data-i18n="h.mix">Decision mix</h2></div>
         <div class="donut-wrap">
           <svg viewBox="0 0 120 120" class="donut"><circle cx="60" cy="60" r="48" class="track"/><circle cx="60" cy="60" r="48" class="seg-ok" id="donut-ok"/><circle cx="60" cy="60" r="48" class="seg-bad" id="donut-bad"/></svg>
-          <div class="donut-c"><b id="k-rate">–</b><span>allow rate</span></div>
+          <div class="donut-c"><b id="k-rate">–</b><span data-i18n="allow.rate">allow rate</span></div>
         </div>
         <div class="legend"><span><i class="sw ok"></i><b id="lg-allow">0</b>&nbsp;allowed</span><span><i class="sw bad"></i><b id="lg-deny">0</b>&nbsp;denied</span></div>
       </div>
     </div>
     <div class="panel">
-        <div class="phead"><h2>Verification</h2><span class="hint">adversarial checks, gateway-enforced</span></div>
+        <div class="phead"><h2 data-i18n="h.verify">Verification</h2><span class="hint" data-i18n="h.verify.h">adversarial checks, gateway-enforced</span></div>
         <div id="verify-mini"></div>
-        <div class="row" style="margin-top:10px"><button id="btn-run-all" class="primary">Run all checks</button><span class="mut" id="rt-summary"></span></div>
+        <div class="row" style="margin-top:10px"><button id="btn-run-all" class="primary" data-i18n="btn.runall">Run all checks</button><span class="mut" id="rt-summary"></span></div>
       </div>
     <div class="grid2">
       <div class="panel">
-        <div class="phead"><h2>Live events</h2><label class="switch"><input type="checkbox" id="feed-live" checked /> live</label></div>
+        <div class="phead"><h2 data-i18n="h.feed">Live events</h2><label class="switch"><input type="checkbox" id="feed-live" checked /> <span data-i18n="feed.live">live</span></label></div>
         <ul class="feed" id="feed"><li class="skel"></li><li class="skel"></li><li class="skel"></li></ul>
       </div>
       <div class="panel">
-        <div class="phead"><h2>Approver</h2><span class="hint">who signs permits</span></div>
+        <div class="phead"><h2 data-i18n="h.approver">Approver</h2><span class="hint" data-i18n="h.approver.h">who signs permits</span></div>
         <dl class="kv">
-          <div><dt>Subject</dt><dd class="mono" id="ap-subject">–</dd></div>
-          <div><dt>Key</dt><dd id="ap-source">–</dd></div>
-          <div><dt>Public key</dt><dd class="mono small" id="ap-pubkey">–</dd></div>
+          <div><dt data-i18n="kv.subject">Subject</dt><dd class="mono" id="ap-subject">–</dd></div>
+          <div><dt data-i18n="kv.key">Key</dt><dd id="ap-source">–</dd></div>
+          <div><dt data-i18n="kv.pubkey">Public key</dt><dd class="mono small" id="ap-pubkey">–</dd></div>
         </dl>
         <p class="mut small">Permits are Ed25519-signed by this approver. Production deployments load the key from a secret manager or HSM; it never leaves the signer.</p>
-        <div class="phead" style="margin-top:14px"><h2>Pending human approvals</h2><span class="hint" id="pend-count"></span></div>
+        <div class="phead" style="margin-top:14px"><h2 data-i18n="h.pending">Pending human approvals</h2><span class="hint" id="pend-count"></span></div>
         <ul class="feed" id="pend-list"><li class="mut">none pending</li></ul>
       </div>
     </div>
@@ -86,74 +87,74 @@
   <section id="tab-operate" class="tab">
     <div class="steps">
       <div class="panel grow">
-        <div class="phead"><h2><span class="n">1</span> Approve <span class="hint">issue a signed permit</span></h2></div>
-        <label>Agent<input id="a-agent" value="agent:console:01" /></label>
+        <div class="phead"><h2><span class="n">1</span> <span data-i18n="op.1">Approve</span> <span class="hint" data-i18n="op.1.h">issue a signed permit</span></h2></div>
+        <label><span data-i18n="f.agent">Agent</span><input id="a-agent" value="agent:console:01" /></label>
         <div class="row2">
-          <label>Action<select id="a-action"><option>tool.call</option><option>file.write</option><option>payment.transfer</option></select></label>
-          <label>Resource<input id="a-resource" value="tool:crm.lookup" /></label>
+          <label><span data-i18n="f.action">Action</span><select id="a-action"><option>tool.call</option><option>file.write</option><option>payment.transfer</option></select></label>
+          <label><span data-i18n="f.resource">Resource</span><input id="a-resource" value="tool:crm.lookup" /></label>
         </div>
-        <label>Args (JSON)<textarea id="a-args" rows="4">{"customer": "acme-42"}</textarea></label>
+        <label><span data-i18n="f.args">Args (JSON)</span><textarea id="a-args" rows="4">{"customer": "acme-42"}</textarea></label>
         <div class="row2">
-          <label>TTL (s)<input id="a-ttl" type="number" value="300" /></label>
-          <label class="self-end"><button id="btn-approve" class="primary">Sign permit</button></label>
+          <label><span data-i18n="f.ttl">TTL (s)</span><input id="a-ttl" type="number" value="300" /></label>
+          <label class="self-end"><button id="btn-approve" class="primary" data-i18n="btn.sign">Sign permit</button></label>
         </div>
       </div>
       <div class="panel grow">
-        <div class="phead"><h2><span class="n">2</span> Execute <span class="hint">verified server-side</span></h2></div>
-        <label>Permit (JSON)<textarea id="e-permit" rows="6" placeholder="Sign a permit in step 1, or paste one here"></textarea></label>
-        <div id="permit-info" class="permit-info mut">no permit loaded</div>
+        <div class="phead"><h2><span class="n">2</span> <span data-i18n="op.2">Execute</span> <span class="hint" data-i18n="op.2.h">verified server-side</span></h2></div>
+        <label><span data-i18n="f.permit">Permit (JSON)</span><textarea id="e-permit" rows="6" data-i18n-ph="f.permit.ph" placeholder="Sign a permit in step 1, or paste one here"></textarea></label>
+        <div id="permit-info" class="permit-info mut" data-i18n="permit.none">no permit loaded</div>
         <div class="row2">
-          <label>Action<input id="e-action" value="tool.call" /></label>
-          <label>Resource<input id="e-resource" value="tool:crm.lookup" /></label>
+          <label><span data-i18n="f.action">Action</span><input id="e-action" value="tool.call" /></label>
+          <label><span data-i18n="f.resource">Resource</span><input id="e-resource" value="tool:crm.lookup" /></label>
         </div>
-        <label>Args (JSON)<textarea id="e-args" rows="4">{"customer": "acme-42"}</textarea></label>
-        <div class="row"><button id="btn-execute" class="primary">Execute with proof</button><button id="btn-copy-permit">Copy permit</button><button id="btn-copy-curl">Copy as curl</button></div>
-        <div class="row" style="margin-top:8px"><button id="btn-request">Request human approval</button><span class="hint" id="req-status">for high-tier actions — polls until decided</span></div>
+        <label><span data-i18n="f.args">Args (JSON)</span><textarea id="e-args" rows="4">{"customer": "acme-42"}</textarea></label>
+        <div class="row"><button id="btn-execute" class="primary" data-i18n="btn.exec">Execute with proof</button><button id="btn-copy-permit" data-i18n="btn.copy.permit">Copy permit</button><button id="btn-copy-curl" data-i18n="btn.copy.curl">Copy as curl</button></div>
+        <div class="row" style="margin-top:8px"><button id="btn-request" data-i18n="btn.request">Request human approval</button><span class="hint" id="req-status" data-i18n="req.hint">for high-tier actions — polls until decided</span></div>
       </div>
     </div>
-    <div class="panel"><div class="phead"><h2><span class="n">3</span> Result</h2></div><pre class="out big" id="o-execute">—</pre></div>
+    <div class="panel"><div class="phead"><h2><span class="n">3</span> <span data-i18n="op.3">Result</span></h2></div><pre class="out big" id="o-execute">—</pre></div>
   </section>
 
   <!-- AGENTS -->
   <section id="tab-agents" class="tab">
     <div class="grid2">
       <div class="panel">
-        <div class="phead"><h2>LLM connection</h2><span class="pillok" id="llm-state">checking…</span></div>
+        <div class="phead"><h2 data-i18n="ag.llm">LLM connection</h2><span class="pillok" id="llm-state">checking…</span></div>
         <dl class="kv">
-          <div><dt>Provider</dt><dd class="mono" id="llm-provider">–</dd></div>
-          <div><dt>Endpoint</dt><dd class="mono small" id="llm-url">–</dd></div>
-          <div><dt>Model</dt><dd class="mono" id="llm-model">–</dd></div>
-          <div><dt>API key</dt><dd id="llm-key">–</dd></div>
+          <div><dt data-i18n="ag.provider">Provider</dt><dd class="mono" id="llm-provider">–</dd></div>
+          <div><dt data-i18n="ag.endpoint">Endpoint</dt><dd class="mono small" id="llm-url">–</dd></div>
+          <div><dt data-i18n="ag.model">Model</dt><dd class="mono" id="llm-model">–</dd></div>
+          <div><dt data-i18n="ag.key">API key</dt><dd id="llm-key">–</dd></div>
         </dl>
         <div class="row2">
-          <label>Provider<select id="llm-prov"><option value="">gateway default</option></select></label>
-          <label>Model<select id="llm-pick"><option value="">gateway default</option></select></label>
+          <label><span data-i18n="ag.provider">Provider</span><select id="llm-prov"><option value="">gateway default</option></select></label>
+          <label><span data-i18n="ag.model">Model</span><select id="llm-pick"><option value="">gateway default</option></select></label>
         </div>
         <div class="row2">
-          <label>…or custom model name<input id="llm-custom" placeholder="e.g. gemma4:12b" /></label>
-          <label class="self-end"><span class="row"><button id="btn-llm-check">Check again</button><button id="btn-llm-save">Save to gateway</button></span></label>
+          <label><span data-i18n="ag.custom">…or custom model name</span><input id="llm-custom" placeholder="e.g. gemma4:12b" /></label>
+          <label class="self-end"><span class="row"><button id="btn-llm-check" data-i18n="btn.check">Check again</button><button id="btn-llm-save" data-i18n="btn.save">Save to gateway</button></span></label>
         </div>
         <p class="mut small">Local (Ollama, LM Studio, vLLM) or hosted (OpenAI, Azure, OpenRouter, Anthropic). API keys stay environment-only — the console never accepts or shows them. Saving writes <span class="mono">configs/llm.env</span>; restart the gateway to apply.</p>
       </div>
       <div class="panel">
-        <div class="phead"><h2>Run a task</h2><span class="hint">model → permit → verified execution</span></div>
-        <label>Task<textarea id="agent-task" rows="3">What tier is customer acme-42?</textarea></label>
-        <div class="row"><label class="switch"><input type="checkbox" id="agent-human" /> pre-approve high-tier for this run</label></div>
-        <div class="row"><label class="switch"><input type="checkbox" id="agent-wait" /> wait for human approval (opens a request, polls the queue)</label></div>
-        <div class="row" style="margin-top:8px"><button id="btn-agent-run" class="primary">Run with proof</button></div>
+        <div class="phead"><h2 data-i18n="ag.task">Run a task</h2><span class="hint" data-i18n="ag.task.h">model → permit → verified execution</span></div>
+        <label><span data-i18n="ag.task.label">Task</span><textarea id="agent-task" rows="3">What tier is customer acme-42?</textarea></label>
+        <div class="row"><label class="switch"><input type="checkbox" id="agent-human" /> <span data-i18n="ag.human">pre-approve high-tier for this run</span></label></div>
+        <div class="row"><label class="switch"><input type="checkbox" id="agent-wait" /> <span data-i18n="ag.wait">wait for human approval (opens a request, polls the queue)</span></label></div>
+        <div class="row" style="margin-top:8px"><button id="btn-agent-run" class="primary" data-i18n="btn.run">Run with proof</button></div>
       </div>
     </div>
-    <div class="panel"><div class="phead"><h2>Result</h2><span class="hint" id="agent-summary"></span></div><pre class="out big" id="o-agent">—</pre></div>
+    <div class="panel"><div class="phead"><h2 data-i18n="ag.result">Result</h2><span class="hint" id="agent-summary"></span></div><pre class="out big" id="o-agent">—</pre></div>
     <div class="panel">
-      <div class="phead"><h2>Remote MCP endpoint</h2><span class="pillok" id="mcp-state">checking…</span></div>
+      <div class="phead"><h2 data-i18n="ag.mcp">Remote MCP endpoint</h2><span class="pillok" id="mcp-state">checking…</span></div>
       <div class="row2">
-        <div><label>Public URL to register (Dots custom app, Muse connector)<input id="mcp-url" readonly /></label></div>
-        <div><label class="self-end"><span class="row"><button id="btn-mcp-test">Test endpoint</button><button id="btn-copy-mcp-url">Copy URL</button></span></label></div>
+        <div><label><span data-i18n="ag.mcp.url">Public URL to register (Dots custom app, Muse connector)</span><input id="mcp-url" readonly /></label></div>
+        <div><label class="self-end"><span class="row"><button id="btn-mcp-test" data-i18n="btn.mcp.test">Test endpoint</button><button id="btn-copy-mcp-url" data-i18n="btn.mcp.copy">Copy URL</button></span></label></div>
       </div>
       <p class="mut small" id="mcp-info">Stateless Streamable HTTP, Bearer-gated when PROF_API_TOKEN is set. Must be public HTTPS — use <span class="mono">PROF_DOMAIN=… docker compose --profile edge up</span>.</p>
     </div>
     <div class="panel">
-      <div class="phead"><h2>Connect an external agent</h2></div>
+      <div class="phead"><h2 data-i18n="ag.ext">Connect an external agent</h2></div>
       <div class="seg" id="agent-tabs" style="margin-bottom:12px">
         <button data-ag="dots" class="on">Dots</button><button data-ag="muse">Muse</button><button data-ag="claude">Claude Code</button><button data-ag="codex">Codex</button><button data-ag="gemini">Gemini</button><button data-ag="cursor">Cursor etc.</button><button data-ag="hook">Shell hook</button>
       </div>
@@ -165,44 +166,45 @@
   <!-- LEDGER -->
   <section id="tab-ledger" class="tab">
     <div class="panel">
-      <div class="phead"><h2>Audit ledger <span class="hint">tamper-evident hash chain</span></h2>
+      <div class="phead"><h2><span data-i18n="lg.title">Audit ledger</span> <span class="hint" data-i18n="lg.h">tamper-evident hash chain</span></h2>
         <span class="pillok" id="ledger-state">checking…</span></div>
       <div class="toolbar">
         <div class="seg" id="ledger-filter">
-          <button data-f="all" class="on">all</button><button data-f="approve">approve</button><button data-f="allow">allow</button><button data-f="deny">deny</button>
+          <button data-f="all" class="on" data-i18n="lg.all">all</button><button data-f="approve" data-i18n="lg.approve">approve</button><button data-f="allow" data-i18n="lg.allow">allow</button><button data-f="deny" data-i18n="lg.deny">deny</button>
         </div>
-        <input id="ledger-q" placeholder="filter: agent, action, resource, detail…  ( / )" />
-        <button id="btn-export">Export JSON</button>
-        <button id="btn-ledger">Refresh</button>
+        <input id="ledger-q" data-i18n-ph="lg.q.ph" placeholder="filter: agent, action, resource, detail…  ( / )" />
+        <button id="btn-export" data-i18n="btn.export">Export JSON</button>
+        <button id="btn-ledger" data-i18n="btn.refresh">Refresh</button>
       </div>
-      <table class="ltable"><thead><tr><th>seq</th><th>event</th><th>action</th><th>resource</th><th>agent</th><th>detail</th><th></th></tr></thead><tbody id="ledger-body"><tr><td colspan="7"><div class="skel"></div></td></tr></tbody></table>
+      <table class="ltable"><thead><tr><th data-i18n="th.seq">seq</th><th data-i18n="th.event">event</th><th data-i18n="th.action">action</th><th data-i18n="th.resource">resource</th><th data-i18n="th.agent">agent</th><th data-i18n="th.detail">detail</th><th></th></tr></thead><tbody id="ledger-body"><tr><td colspan="7"><div class="skel"></div></td></tr></tbody></table>
     </div>
   </section>
 
   <!-- POLICY -->
   <section id="tab-policy" class="tab">
     <div class="panel">
-      <div class="phead"><h2>Active policy <span class="hint mono" id="policy-id"></span></h2></div>
+      <div class="phead"><h2 data-i18n="po.title">Active policy</h2><span class="hint mono" id="policy-id"></span></div>
       <div class="tiers">
-        <div class="tier low"><b>Low</b><span>pre-delegated reads, auto-approvable</span></div>
-        <div class="tier med"><b>Medium</b><span>constrained tokens: limits, expiry, prefix</span></div>
-        <div class="tier high"><b>High</b><span>explicit human approval, amount caps</span></div>
+        <div class="tier low"><b data-i18n="tier.low">Low</b><span data-i18n="tier.low.s">pre-delegated reads, auto-approvable</span></div>
+        <div class="tier med"><b data-i18n="tier.med">Medium</b><span data-i18n="tier.med.s">constrained tokens: limits, expiry, prefix</span></div>
+        <div class="tier high"><b data-i18n="tier.high">High</b><span data-i18n="tier.high.s">explicit human approval, amount caps</span></div>
       </div>
-      <table class="ltable"><thead><tr><th>action</th><th>resource</th><th>tier</th><th>human</th><th>max amount</th></tr></thead><tbody id="policy-body"></tbody></table>
-      <p class="mut">Unmatched requests fall back to <b id="policy-default"></b> → deny (fail-closed). Changing <span class="mono">policy_id</span> invalidates outstanding permits.</p>
+      <table class="ltable"><thead><tr><th data-i18n="th.action">action</th><th data-i18n="th.resource">resource</th><th data-i18n="th.tier">tier</th><th data-i18n="th.human">human</th><th data-i18n="th.max">max amount</th></tr></thead><tbody id="policy-body"></tbody></table>
+      <p class="mut"><span data-i18n="po.fallback.1">Unmatched requests fall back to </span><b id="policy-default"></b><span data-i18n="po.fallback.2"> → deny (fail-closed). Changing </span><span class="mono">policy_id</span><span data-i18n="po.fallback.3"> invalidates outstanding permits.</span></p>
     </div>
   </section>
 </main>
 
 <footer class="statusbar">
   <span id="sb-head" class="mono">ledger head …</span><span class="sp"></span>
-  <span class="mut">keys <b>1–5</b> switch views · <b>/</b> ledger search</span>
+  <span class="mut"><span data-i18n="foot.keys.pre">keys</span> <b>1–5</b> <span data-i18n="foot.keys">switch views · <b>/</b> ledger search</span></span>
   <span>·</span><a href="/docs">API docs</a><span>·</span><a href="https://github.com/4chains-inc/prof">GitHub</a>
 </footer>
 
-<div class="drawer" id="drawer"><div class="dhead"><h3>Ledger entry <span id="d-seq"></span></h3><button id="d-close">✕</button></div><pre class="out big" id="d-body"></pre>
+<div class="drawer" id="drawer"><div class="dhead"><h3><span data-i18n="drawer.title">Ledger entry</span> <span id="d-seq"></span></h3><button id="d-close">✕</button></div><pre class="out big" id="d-body"></pre>
 <div class="chain" id="d-chain"></div></div>
 <div class="scrim" id="scrim"></div>
+<script src="i18n.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

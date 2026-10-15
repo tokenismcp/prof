@@ -19,7 +19,7 @@ console:
 	PROF_DEMO=1 python -m prof gateway & sleep 2; open http://127.0.0.1:8091/console/ 2>/dev/null || xdg-open http://127.0.0.1:8091/console/; wait
 
 docker-build:
-	docker build -t prof-gateway:0.1.0 .
+	docker build -t prof-gateway:1.0.0 .
 
 docker-up:
 	cp -n configs/prof.env.example configs/prof.env 2>/dev/null || true

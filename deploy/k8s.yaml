@@ -44,7 +44,7 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: gateway
-          image: prof-gateway:0.1.0
+          image: prof-gateway:1.0.0
           ports: [{ containerPort: 8091 }]
           env:
             - { name: PROF_DEMO, value: "0" }

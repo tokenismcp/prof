@@ -29,7 +29,7 @@ from prof.gateway import ExecuteRequest
 from prof.permit import Permit, hash_args
 
 PROTOCOL_VERSION = "2024-11-05"
-SERVER_INFO = {"name": "prof", "version": "0.1.0"}
+SERVER_INFO = {"name": "prof", "version": "1.0.0"}
 
 
 def _tool_defs() -> list:

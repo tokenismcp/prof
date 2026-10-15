@@ -1,6 +1,6 @@
 # PROF Roadmap
 
-## Phase 1 — Developer Preview (this release, v0.1)
+## Phase 1 — v1.0 release
 - [x] Core SDK, Gateway, sample policy, CLI, MCP adapter (stdio + remote HTTP)
 - [x] 3 reference workflows + full demo (allow / tamper / replay / amount-tamper)
 - [x] Threat tests + ledger verification + SQLite resource layer

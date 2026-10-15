@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.0.0 (2026-10-16)
+- First stable release. Everything below, hardened and fully tested.
+- Korean/English console UI (toggle, persisted, tested). Provider-matched LLM catalogs, latest models.
+- Transparent agents (auto-approve), remote MCP for Dots/Muse, approval queue.
+- 80 tests green (incl. release-hygiene + i18n parity), performance audit published, whitepaper included.
+- Verified packaging: sdist contains console/integrations/examples/docs, clean reinstall validated, Docker 1.0.0 smoke-tested.
+
 ## v0.1.0 (2026-10-14) — Developer Preview
 - Permit (Ed25519) + canonical signing bytes + args_hash binding
 - Risk-based policy engine (low/medium/high) + YAML policies
