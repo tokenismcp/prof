@@ -155,15 +155,23 @@ PROVIDERS = {
 
 # Curated defaults when a provider has no listable catalog (Anthropic has
 # no /models API) or the endpoint is unreachable. Shown marked as fallback.
+# Curated catalogs per provider (Oct 2026). Live /models listing always wins
+# when reachable; these are the fallback AND the sane defaults. IDs follow
+# vendor API conventions — confirm with `prof llm-setup` (live listing).
 FALLBACK_MODELS = {
-    "ollama": ["gemma4:12b", "gemma3:4b", "qwen3:30b-a3b-instruct-2507-q4_K_M"],
+    "ollama": ["qwen3:30b", "qwen3:8b", "gemma4:12b", "gemma3:12b",
+               "granite4:3b", "llama3.3:70b", "gpt-oss:120b", "deepseek-r1:32b"],
     "lmstudio": ["local-model"],
-    "vllm": ["Qwen/Qwen3-30B-A3B"],
-    "openai": ["gpt-6.1-sol", "gpt-6-astra", "gpt-6-sol", "gpt-5.6"],
+    "vllm": ["Qwen/Qwen3-30B-A3B", "meta-llama/Llama-4-Maverick-17B-128E-Instruct",
+             "deepseek-ai/DeepSeek-V4"],
+    "openai": ["gpt-6-astra", "gpt-6.1-sol", "gpt-6-sol", "gpt-6-luna",
+               "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-oss-120b"],
     "azure": [],
-    "openrouter": ["openai/gpt-6-astra", "qwen/qwen3-30b-a3b:free"],
-    "anthropic": ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-1"],
-    "gemini": ["gemini-4-argon", "gemini-3.5-flash"],
+    "openrouter": ["openai/gpt-6-astra", "anthropic/claude-sonnet-5-5",
+                   "google/gemini-4-argon", "qwen/qwen3-30b-a3b:free"],
+    "anthropic": ["claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-5-5",
+                  "claude-fable-5-1", "claude-opus-5", "claude-sonnet-5"],
+    "gemini": ["gemini-4-argon", "gemini-3.5-flash", "gemini-3.5-pro", "gemini-3.1-pro"],
 }
 
 
