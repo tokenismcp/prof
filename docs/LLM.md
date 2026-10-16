@@ -15,13 +15,16 @@ Local-first, provider-agnostic, stdlib-only (no extra dependencies).
 | `anthropic` | native `/v1/messages` | `https://api.anthropic.com/v1` | `PROF_LLM_API_KEY` |
 | `gemini` | OpenAI-compat layer | `…/v1beta/openai/` | `PROF_LLM_API_KEY` |
 
-Current catalogs (Oct 2026, refreshed from vendor announcements; confirm exact
-API IDs with `prof llm-setup`, which lists live catalogs): OpenAI
-(`gpt-6-astra`, 6.1-Sol, 6-Sol/Luna, 5.6 trio, `gpt-oss-120b`), Anthropic
-(Sonnet/Opus/Haiku 5.5, Fable 5.1, Opus/Sonnet 5), Google (`gemini-4-argon`,
-3.5 family), local tool-callers (`qwen3`, `gemma4/3`, `granite4`, `llama3.3`,
-`gpt-oss`, `deepseek-r1`). Live `/models` listing always wins when reachable;
-otherwise the curated list shows marked as fallback.
+Current catalogs (verified Oct 16, 2026 against vendor docs + live APIs:
+Anthropic Models overview, OpenRouter `/api/v1/models` (465 entries), Google
+AI docs; confirm exact IDs anytime with `prof llm-setup`, which lists live
+catalogs): OpenAI (`gpt-6-astra`, 6.1-Sol, 6-Sol/Luna, 5.6 trio, `gpt-oss-120b`),
+Anthropic (Sonnet/Opus/Haiku 5.5, Fable 5.1, Opus/Sonnet 5 — all tool-capable,
+1M context), Google (`gemini-4-argon`, 3.5 family), local tool-callers
+(`qwen3`, `gemma4/3`, `qwen3-coder`, `llama3.3`, `gpt-oss`, `deepseek-r1`,
+`granite4`). Live `/models` listing always wins when reachable (including
+Anthropic's native Models API); otherwise the curated list shows marked as
+fallback.
 
 Anthropic requests use the native tool format and responses are normalized
 back to the OpenAI shape, so the loop is identical for every provider.

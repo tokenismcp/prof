@@ -126,7 +126,11 @@ def test_list_models_against_stub():
             pass
 
         def do_GET(self):
-            out = json.dumps({"data": [{"id": "m-b"}, {"id": "m-a"}]}).encode()
+            if self.path.startswith("/v1/"):
+                out = json.dumps({"data": [{"id": "m-b"}, {"id": "m-a"}]}).encode()
+            else:
+                out = json.dumps({"data": [{"id": "claude-sonnet-5-5"},
+                                           {"id": "claude-opus-5-5"}]}).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(out)))
@@ -137,6 +141,10 @@ def test_list_models_against_stub():
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     models = list_models(LLMConfig(base_url=f"http://127.0.0.1:{srv.server_port}/v1"))
     assert models == ["m-a", "m-b"]  # sorted
+    got = list_models(LLMConfig(provider="anthropic", api_key="k",
+                                base_url=f"http://127.0.0.1:{srv.server_port}/claude"))
+    assert got == ["claude-opus-5-5", "claude-sonnet-5-5"]  # native Models API
+    assert list_models(LLMConfig(provider="anthropic", api_key="")) == []
     srv.shutdown()
 
 
