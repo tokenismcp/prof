@@ -42,3 +42,12 @@ def test_compose_and_k8s_pin_release_image():
 def test_changelog_has_release_entry():
     from prof import __version__
     assert f"## v{__version__}" in (ROOT / "CHANGELOG.md").read_text()
+
+
+def test_console_assets_versioned():
+    """Console asset URLs carry ?v=<version> so browsers never serve a stale
+    copy across releases (a cached i18n.js/app.js breaks the whole console)."""
+    from prof import __version__
+    html = (ROOT / "prof" / "console" / "index.html").read_text()
+    for asset in ("style.css", "i18n.js", "app.js"):
+        assert f'{asset}?v={__version__}' in html, asset

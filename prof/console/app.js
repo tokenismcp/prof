@@ -352,7 +352,7 @@ async function loadLLM(quiet) {
     el.classList.toggle("bad", !s.reachable);
     const pick = $("llm-pick"), cur = pick.value;
     pick.innerHTML = '<option value="">' + t("ag.gwdefault") + '</option>' +
-      (s.models || []).map((m) => `<option>${esc(m)}</option>`).join("");
+      (s.models || []).map((m) => `<option value="${esc(m.id)}"${!m.tools ? ' data-tools="false"' : ''}>${esc(m.id)}</option>`).join("");
     if ([...pick.options].some((o) => o.value === cur)) pick.value = cur;
     const prov = $("llm-prov"), pcur = prov.value;
     prov.innerHTML = '<option value="">' + t("ag.gwdefault") + '</option>' +
@@ -371,18 +371,29 @@ async function loadModelsFor(provider) {
   try {
     const s = await jget("/v1/llm/models" + (provider ? "?provider=" + encodeURIComponent(provider) : ""));
     pick.innerHTML = '<option value="">' + t("ag.gwdefault") + '</option>' +
-      (s.models || []).map((m) => `<option>${esc(m)}</option>`).join("");
+      (s.models || []).map((m) => `<option value="${esc(m.id)}"${!m.tools ? ' data-tools="false"' : ''}>${esc(m.id)}</option>`).join("");
     if ([...pick.options].some((o) => o.value === cur)) pick.value = cur;
     if (s.fallback) toast("", t("t.catalog"), t("t.catalog.s"));
   } catch { /* keep previous list */ }
 }
 $("llm-prov").onchange = () => loadModelsFor($("llm-prov").value);
+$("llm-pick").onchange = () => {
+  const sel = $("llm-pick").options[$("llm-pick").selectedIndex];
+  if (sel && sel.dataset.tools === "false") {
+    toast("warn", t("model.notools"), t("model.notoolsdesc"));
+  }
+};
 $("btn-llm-check").onclick = () => loadLLM(false);
 $("btn-llm-save").onclick = async () => {
   const body = {};
   if ($("llm-prov").value) body.provider = $("llm-prov").value;
   if (chosenModel()) body.model = chosenModel();
   if (!body.provider && !body.model) { toast("err", t("t.nothing"), t("t.pickfirst")); return; }
+  const sel = $("llm-pick").options[$("llm-pick").selectedIndex];
+  if (sel && sel.dataset.tools === "false") {
+    toast("err", t("model.notools"), t("model.notoolsdesc"));
+    return;
+  }
   const res = await jpost("/v1/llm/config", body);
   if (res.status !== 200) { toast("err", t("t.save.fail"), JSON.stringify(res.body).slice(0, 160)); return; }
   toast("ok", t("t.saved"), res.body.saved || "");
@@ -390,6 +401,11 @@ $("btn-llm-save").onclick = async () => {
 $("btn-agent-run").onclick = async () => {
   const task = $("agent-task").value.trim();
   if (!task) { toast("err", t("t.empty.task"), t("t.describe")); return; }
+  const sel = $("llm-pick").options[$("llm-pick").selectedIndex];
+  if (sel && sel.dataset.tools === "false") {
+    toast("err", t("model.notools"), t("model.notoolsdesc"));
+    return;
+  }
   show("o-agent", t("agent.running"));
   $("agent-summary").textContent = "";
   const { status, body } = await jpost("/v1/agent/run", { task, max_steps: 8,

@@ -159,22 +159,59 @@ PROVIDERS = {
 # when reachable; these are the fallback AND the sane defaults. IDs follow
 # vendor API conventions — confirm with `prof llm-setup` (live listing).
 FALLBACK_MODELS = {
-    "ollama": ["qwen3:30b", "qwen3:8b", "gemma4:12b", "gemma3:12b",
-               "qwen3-coder:30b-a3b", "llama3.3:70b", "gpt-oss:120b",
-               "deepseek-r1:32b", "granite4:3b"],
-    "lmstudio": ["local-model"],
-    "vllm": ["Qwen/Qwen3-30B-A3B", "meta-llama/llama-4-maverick",
-             "meta-llama/llama-4-scout", "deepseek-ai/DeepSeek-V4"],
-    "openai": ["gpt-6-astra", "gpt-6.1-sol", "gpt-6-sol", "gpt-6-luna",
-               "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-oss-120b"],
+    "ollama": [
+        {"id": "qwen3:30b", "tools": True},
+        {"id": "qwen3:8b", "tools": True},
+        {"id": "gemma4:12b", "tools": True},
+        {"id": "gemma3:12b", "tools": True},
+        {"id": "qwen3-coder:30b-a3b", "tools": True},
+        {"id": "llama3.3:70b", "tools": True},
+        {"id": "gpt-oss:120b", "tools": True},
+        {"id": "deepseek-r1:32b", "tools": True},
+        {"id": "granite4:3b", "tools": True},
+    ],
+    "lmstudio": [{"id": "local-model", "tools": False}],
+    "vllm": [
+        {"id": "Qwen/Qwen3-30B-A3B", "tools": True},
+        {"id": "meta-llama/Llama-4-Maverick-17B-128E-Instruct", "tools": True},
+        {"id": "meta-llama/llama-4-scout", "tools": True},
+        {"id": "deepseek-ai/DeepSeek-V4", "tools": True},
+    ],
+    "openai": [
+        {"id": "gpt-6-astra", "tools": True},
+        {"id": "gpt-6.1-sol", "tools": True},
+        {"id": "gpt-6-sol", "tools": True},
+        {"id": "gpt-6-luna", "tools": True},
+        {"id": "gpt-5.6-sol", "tools": True},
+        {"id": "gpt-5.6-terra", "tools": True},
+        {"id": "gpt-5.6-luna", "tools": True},
+        {"id": "gpt-oss-120b", "tools": True},
+    ],
     "azure": [],
-    "openrouter": ["openai/gpt-6-astra", "openai/gpt-6.1-sol",
-                   "anthropic/claude-sonnet-5-5", "anthropic/claude-opus-5-5",
-                   "google/gemini-4-argon", "qwen/qwen3-30b-a3b-instruct-2507",
-                   "moonshotai/kimi-k2.6", "deepseek/deepseek-v4-pro"],
-    "anthropic": ["claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-5-5",
-                  "claude-fable-5-1", "claude-opus-5", "claude-sonnet-5"],
-    "gemini": ["gemini-4-argon", "gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.1-pro"],
+    "openrouter": [
+        {"id": "openai/gpt-6-astra", "tools": True},
+        {"id": "openai/gpt-6.1-sol", "tools": True},
+        {"id": "anthropic/claude-sonnet-5-5", "tools": True},
+        {"id": "anthropic/claude-opus-5-5", "tools": True},
+        {"id": "google/gemini-4-argon", "tools": True},
+        {"id": "qwen/qwen3-30b-a3b-instruct-2507", "tools": True},
+        {"id": "moonshotai/kimi-k2.6", "tools": True},
+        {"id": "deepseek/deepseek-v4-pro", "tools": True},
+    ],
+    "anthropic": [
+        {"id": "claude-sonnet-5-5", "tools": True},
+        {"id": "claude-opus-5-5", "tools": True},
+        {"id": "claude-haiku-5-5", "tools": True},
+        {"id": "claude-fable-5-1", "tools": True},
+        {"id": "claude-opus-5", "tools": True},
+        {"id": "claude-sonnet-5", "tools": True},
+    ],
+    "gemini": [
+        {"id": "gemini-4-argon", "tools": True},
+        {"id": "gemini-3.5-flash", "tools": True},
+        {"id": "gemini-3.5-flash-lite", "tools": True},
+        {"id": "gemini-3.1-pro", "tools": True},
+    ],
 }
 
 
@@ -281,35 +318,56 @@ def _anthropic_complete(cfg: LLMConfig, messages: List[Dict[str, Any]],
     return msg
 
 
-def list_models(cfg: LLMConfig) -> List[str]:
-    """Best-effort model list. OpenAI-protocol /models, or Anthropic's
-    native Models API. Empty when unsupported/unreachable."""
+def list_models(cfg: LLMConfig) -> List[Dict[str, Any]]:
+    """Best-effort model list. OpenAI-compatible /models, or Anthropic's
+    native Models API. Empty when unsupported/unreachable. Each entry is
+    {"id": str, "tools": bool}."""
     if cfg.protocol == "anthropic":
         return _anthropic_models(cfg)
     if cfg.protocol != "openai":
         return []
-    url = cfg.base_url.rstrip("/") + "/models"
-    req = urllib.request.Request(url, headers={
-        "Content-Type": "application/json", **(
-            {"Authorization": f"Bearer {cfg.api_key}"} if cfg.api_key else {})})
+    base = cfg.base_url.strip()
+    if not base.startswith(("http://", "https://")):
+        return []  # unconfigured/relative endpoint (e.g. azure before env is set)
+    url = base.rstrip("/") + "/models"
     try:
+        req = urllib.request.Request(url, headers={
+            "Content-Type": "application/json", **(
+                {"Authorization": f"Bearer {cfg.api_key}"} if cfg.api_key else {})})
         with urllib.request.urlopen(req, timeout=min(cfg.timeout_s, 15)) as resp:
             payload = json.loads(resp.read().decode("utf-8"))
-        return sorted(m.get("id", "") for m in payload.get("data", []) if m.get("id"))
+        models = [m.get("id", "") for m in payload.get("data", []) if m.get("id")]
+        tool_map = {m["id"]: m.get("tools", False) for m in FALLBACK_MODELS.get(cfg.provider, [])}
+        # A "tools" flag from the live endpoint overrides the curated catalog.
+        for m in payload.get("data", []):
+            mid = m.get("id")
+            if mid and "tools" in m:
+                tool_map[mid] = m["tools"]
+        return [{"id": m, "tools": tool_map.get(m, False)} for m in sorted(models)]
     except Exception:
         return []
 
 
-def _anthropic_models(cfg: LLMConfig) -> List[str]:
+def _anthropic_models(cfg: LLMConfig) -> List[Dict[str, Any]]:
     if not cfg.api_key:
         return []
-    req = urllib.request.Request(
-        cfg.base_url.rstrip("/") + "/models",
-        headers={"x-api-key": cfg.api_key, "anthropic-version": "2023-06-01"})
+    base = cfg.base_url.strip()
+    if not base.startswith(("http://", "https://")):
+        return []
     try:
+        req = urllib.request.Request(
+            base.rstrip("/") + "/models",
+            headers={"x-api-key": cfg.api_key, "anthropic-version": "2023-06-01"})
         with urllib.request.urlopen(req, timeout=min(cfg.timeout_s, 15)) as resp:
             payload = json.loads(resp.read().decode("utf-8"))
-        return sorted(m.get("id", "") for m in payload.get("data", []) if m.get("id"))
+        models = [m.get("id", "") for m in payload.get("data", []) if m.get("id")]
+        tool_map = {m["id"]: m.get("tools", False) for m in FALLBACK_MODELS.get(cfg.provider, [])}
+        # A "tools" flag from the live endpoint overrides the curated catalog.
+        for m in payload.get("data", []):
+            mid = m.get("id")
+            if mid and "tools" in m:
+                tool_map[mid] = m["tools"]
+        return [{"id": m, "tools": tool_map.get(m, False)} for m in sorted(models)]
     except Exception:
         return []
 

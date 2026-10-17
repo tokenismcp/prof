@@ -70,6 +70,8 @@ def test_llm_status_shape_and_no_key_leak():
     for k in ("provider", "model", "base_url", "reachable", "info"):
         assert k in body, body
     assert "api_key" not in body
+    assert isinstance(body["models"], list) and isinstance(body["providers"], dict)
+    assert len(body["providers"]) >= 6  # full provider menu always present
     # no key VALUE may ever leak (blurbs may name the env var — that's docs)
     secret = os.environ.get("PROF_LLM_API_KEY", "")
     assert not secret or secret not in r.text
@@ -83,7 +85,12 @@ def test_llm_models_catalog_per_provider():
     r = c.get("/v1/llm/models?provider=anthropic")
     body = r.json()
     assert body["provider"] == "anthropic" and body["fallback"] is True
-    assert "claude-sonnet-5-5" in body["models"]
+    assert "claude-sonnet-5-5" in [m["id"] for m in body["models"]]
+    assert all(isinstance(m, dict) and "tools" in m for m in body["models"])
+    # unconfigured provider (azure has no preset endpoint) must not 500
+    r = c.get("/v1/llm/models?provider=azure")
+    assert r.status_code == 200
+    assert r.json()["models"] == []
     # default (gateway env) still works
     r = c.get("/v1/llm/models")
     assert "models" in r.json() and "fallback" in r.json()

@@ -26,6 +26,20 @@ Anthropic (Sonnet/Opus/Haiku 5.5, Fable 5.1, Opus/Sonnet 5 — all tool-capable,
 Anthropic's native Models API); otherwise the curated list shows marked as
 fallback.
 
+### Tool-calling flag
+
+Every catalog entry is `{"id": str, "tools": bool}`. PROF drives **every**
+action through a tool call, so a model without tool-calling is unusable.
+The flag comes from the live endpoint when it advertises one (`"tools"` on a
+`/models` entry) and otherwise from the curated catalog.
+
+- `GET /v1/llm/models` returns the objects; the console marks non-tool models
+  and **blocks** Save / Run with a warning (`model.notools`).
+- `list_models()` returns the same objects; `prof llm-check` / `prof llm-setup`
+  append `⚠` to non-tool models and warn when one is chosen.
+- Fail-closed: an unconfigured or unreachable endpoint lists `[]` (never
+  raises), and the console falls back to the marked curated catalog.
+
 Anthropic requests use the native tool format and responses are normalized
 back to the OpenAI shape, so the loop is identical for every provider.
 
@@ -61,7 +75,10 @@ tools and effect failures are observations, not crashes (fail-closed).
 
 The Agents tab shows provider/endpoint/model/key-presence, lists models for
 one-click switching (per-run override; save persists to `llm.env`), and runs
-tasks in-browser with per-step ledger references.
+tasks in-browser with per-step ledger references. Changing the provider
+reloads that provider's catalog live; non-tool models are flagged and cannot
+be saved or run. Console assets carry a `?v=<version>` query and are served
+`no-cache` so an upgrade never runs a stale `i18n.js`/`app.js`.
 
 ## Programmatic use
 

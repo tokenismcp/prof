@@ -2,6 +2,10 @@
 
 import pathlib
 import re
+import shutil
+import subprocess
+
+import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 I18N = ROOT / "prof" / "console" / "i18n.js"
@@ -61,3 +65,14 @@ def test_no_hardcoded_ui_strings_left():
     ]
     hits = [s for s in leftovers if s in js]
     assert not hits, hits
+
+
+def test_js_files_parse():
+    """Guard against syntax errors (e.g. a missing comma) that the regex
+    checks above cannot see — a broken i18n.js/app.js kills the whole console."""
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node not installed")
+    for f in (I18N, APP):
+        r = subprocess.run([node, "--check", str(f)], capture_output=True, text=True)
+        assert r.returncode == 0, f"{f.name} failed to parse:\n{r.stderr}"

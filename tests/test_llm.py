@@ -126,11 +126,11 @@ def test_list_models_against_stub():
             pass
 
         def do_GET(self):
-            if self.path.startswith("/v1/"):
-                out = json.dumps({"data": [{"id": "m-b"}, {"id": "m-a"}]}).encode()
+            if self.path.startswith("/claude"):
+                out = json.dumps({"data": [{"id": "claude-sonnet-5-5", "tools": True},
+                                           {"id": "claude-opus-5-5", "tools": True}]}).encode()
             else:
-                out = json.dumps({"data": [{"id": "claude-sonnet-5-5"},
-                                           {"id": "claude-opus-5-5"}]}).encode()
+                out = json.dumps({"data": [{"id": "m-b", "tools": True}, {"id": "m-a", "tools": False}]}).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(out)))
@@ -140,12 +140,22 @@ def test_list_models_against_stub():
     srv = HTTPServer(("127.0.0.1", 0), MH)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     models = list_models(LLMConfig(base_url=f"http://127.0.0.1:{srv.server_port}/v1"))
-    assert models == ["m-a", "m-b"]  # sorted
+    assert models == [{"id": "m-a", "tools": False}, {"id": "m-b", "tools": True}]  # sorted
     got = list_models(LLMConfig(provider="anthropic", api_key="k",
                                 base_url=f"http://127.0.0.1:{srv.server_port}/claude"))
-    assert got == ["claude-opus-5-5", "claude-sonnet-5-5"]  # native Models API
+    assert got == [{"id": "claude-opus-5-5", "tools": True},
+                   {"id": "claude-sonnet-5-5", "tools": True}]  # native Models API
     assert list_models(LLMConfig(provider="anthropic", api_key="")) == []
     srv.shutdown()
+
+
+def test_list_models_unconfigured_endpoint_is_safe():
+    """Empty/relative base URLs (e.g. azure before env is set) must return []
+    instead of raising — the gateway endpoint would otherwise 500."""
+    from prof.llm import list_models
+    assert list_models(LLMConfig(provider="azure")) == []
+    assert list_models(LLMConfig(provider="ollama", base_url="not-a-url")) == []
+    assert list_models(LLMConfig(provider="anthropic", api_key="k", base_url="/v1")) == []
 
 
 def test_agent_loop_executes_real_tool(llm_server):

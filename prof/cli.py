@@ -133,7 +133,8 @@ def llm_check(provider, base_url, model):
     if ok:
         models = list_models(cfg)
         if models:
-            click.echo("models: " + ", ".join(models[:15]))
+            click.echo("models (⚠ = no tool-calling): " + ", ".join(
+                m["id"] + ("" if m.get("tools") else " ⚠") for m in models[:15]))
     if provider and provider not in PROVIDERS:
         raise click.ClickException(f"unknown provider. choices: {', '.join(PROVIDERS)}")
     if not ok:
@@ -170,13 +171,17 @@ def llm_setup():
         click.echo(f"set your key first: export PROF_LLM_API_KEY=…  (never stored by PROF)")
     models = list_models(cfg)
     if models:
-        click.echo("available models:")
+        click.echo("available models (⚠ = no tool-calling; PROF needs tools):")
         for i, m in enumerate(models[:15], 1):
-            click.echo(f"  {i}. {m}")
+            click.echo(f"  {i}. {m['id']}" + ("" if m.get("tools") else " ⚠"))
         pick = click.prompt("model number (0 = keep default)", default="0")
         try:
             if int(pick) > 0:
-                cfg.model = models[int(pick) - 1]
+                chosen = models[int(pick) - 1]
+                cfg.model = chosen["id"]
+                if not chosen.get("tools"):
+                    click.echo(f"warning: {chosen['id']} may not support tool calls; "
+                               "PROF drives every action through tools.")
         except (ValueError, IndexError):
             pass
     ok, info = check_connectivity(cfg)

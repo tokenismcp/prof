@@ -414,11 +414,14 @@ def deny_request(rid: str, inp: DenyIn, _t: None = Depends(require_token)):
 def llm_status():
     from prof.llm import LLMConfig, PROVIDERS, check_connectivity, list_models
     cfg = LLMConfig()
+    # Probe with a short timeout so a slow/unreachable endpoint never blocks
+    # the console for the full chat timeout (PROF_LLM_TIMEOUT defaults to 60s).
+    cfg.timeout_s = min(cfg.timeout_s, 8)
     ok, info = check_connectivity(cfg)
     return {"configured": True, "reachable": ok, "info": info,
             "provider": cfg.provider, "model": cfg.model, "base_url": cfg.base_url,
             "needs_key": cfg.needs_key, "key_present": bool(cfg.api_key),
-            "models": list_models(cfg) if ok else [],
+            "models": list_models(cfg),  # best-effort; [] if unlistable
             "providers": {k: {"protocol": v["protocol"], "needs_key": v["needs_key"],
                               "blurb": v["blurb"]} for k, v in PROVIDERS.items()}}
 
@@ -447,8 +450,8 @@ def llm_models(provider: str = "", base_url: str = ""):
         return {"provider": cfg.provider, "models": models, "fallback": False}
     fb = FALLBACK_MODELS.get(cfg.provider, [])
     preset = PROVIDERS[cfg.provider]["model"]
-    if preset and preset not in fb:
-        fb = [preset, *fb]
+    if preset and preset not in [m["id"] for m in fb]:
+        fb = [{"id": preset, "tools": False}, *fb]
     return {"provider": cfg.provider, "models": fb, "fallback": True}
 
 
@@ -621,7 +624,17 @@ def serve() -> None:
 
 try:
     import pathlib as _pl
+
+    class _RevalidatingStatic(StaticFiles):
+        """Console assets: revalidate on every load so code updates always
+        apply after a reload (this is a local ops console, not a CDN)."""
+
+        def file_response(self, *args, **kwargs):
+            resp = super().file_response(*args, **kwargs)
+            resp.headers["Cache-Control"] = "no-cache, must-revalidate"
+            return resp
+
     _console_dir = str(_pl.Path(__file__).parent / "console")
-    app.mount("/console", StaticFiles(directory=_console_dir, html=True), name="console")
+    app.mount("/console", _RevalidatingStatic(directory=_console_dir, html=True), name="console")
 except Exception:
     pass  # console optional in minimal installs
