@@ -78,6 +78,8 @@ const show = (id, o) => { $(id).textContent = typeof o === "string" ? o : JSON.s
 
 /* ---------- state ---------- */
 let lastPermit = null, lastEntries = [], ledgerFilter = "all", areaHist = [], baseAllow = null, baseDeny = null;
+let lastTasks = [];
+let lastInboxCounts = {};
 const CIRC = 2 * Math.PI * 48;
 
 /* ---------- overview ---------- */
@@ -423,6 +425,60 @@ $("btn-agent-run").onclick = async () => {
   toast(body.denied && !body.allowed ? "err" : "ok", t("t.run.done"), `${t("legend.allowed")} ${body.allowed}, ${t("legend.denied")} ${body.denied}`);
   refresh();
 };
+/* ---------- agent task inbox (assign work to any connected agent) ---------- */
+const INBOX_EV = { pending: "request", claimed: "approve", done: "allow", failed: "deny", cancelled: "deny" };
+async function loadInbox() {
+  try {
+    const r = await jget("/v1/tasks?status=&limit=50");
+    lastTasks = r.tasks || [];
+    lastInboxCounts = r.counts || {};
+    renderInbox(lastInboxCounts);
+  } catch { /* offline */ }
+}
+function renderInbox(counts) {
+  counts = counts || lastInboxCounts;
+  const f = ($("inbox-agent-filter").value || "").trim().toLowerCase();
+  let items = lastTasks;
+  if (f) items = items.filter((x) =>
+    (x.target_agent || "").toLowerCase().includes(f) || (x.claimed_by || "").toLowerCase().includes(f));
+  const active = (counts.pending || 0) + (counts.claimed || 0);
+  $("inbox-count").textContent = active ? active + " " + t("ag.inbox.active") : "";
+  $("inbox-list").innerHTML = items.length ? items.slice(0, 20).map((x) => {
+    const meta = [esc(x.id)];
+    if (x.target_agent) meta.push("→ " + esc(x.target_agent));
+    if (x.claimed_by) meta.push("· " + esc(x.claimed_by));
+    if (x.result) meta.push("· " + esc(String(x.result).slice(0, 140)));
+    if (x.error) meta.push("· ⚠ " + esc(String(x.error).slice(0, 120)));
+    const open = x.status === "pending" || x.status === "claimed";
+    return `<li><span class="ev ev-${INBOX_EV[x.status] || "request"}">${esc(x.status)}</span>` +
+      `<span style="flex:1"><b>${esc(String(x.task).slice(0, 140))}</b><br>` +
+      `<span class="mut">${meta.join(" ")}</span></span>` +
+      (open ? `<button data-cancel="${esc(x.id)}">${t("btn.cancel")}</button>` : "");
+  }).join("") : `<li class="mut">${t("inbox.empty")}</li>`;
+  document.querySelectorAll("#inbox-list [data-cancel]").forEach((b) => (b.onclick = () => cancelTask(b.dataset.cancel)));
+}
+async function cancelTask(id) {
+  const { status } = await jpost(`/v1/tasks/${id}/cancel`, {});
+  toast(status === 200 ? "ok" : "err", status === 200 ? t("t.cancelled") : t("t.cancel.fail"), id);
+  loadInbox();
+}
+$("btn-task-queue").onclick = async () => {
+  const task = $("agent-task").value.trim();
+  if (!task) { toast("err", t("t.empty.task"), t("t.describe")); return; }
+  const target = ($("inbox-agent-filter").value || "").trim();
+  const { status, body } = await jpost("/v1/tasks", { task, agent: target, max_steps: 8,
+    human_approve: $("agent-human").checked, provider: $("llm-prov").value || "", model: chosenModel() });
+  if (status !== 200) { toast("err", t("t.queue.fail"), (body.detail || JSON.stringify(body)).slice(0, 160)); return; }
+  toast("ok", t("t.queued"), `${body.id}${target ? " → " + target : ""}`);
+  loadInbox();
+};
+$("btn-inbox-refresh").onclick = loadInbox;
+$("inbox-agent-filter").addEventListener("input", () => renderInbox());
+$("btn-inbox-clear").onclick = async () => {
+  const { status, body } = await jpost("/v1/tasks/clear", {});
+  toast(status === 200 ? "ok" : "err", t("t.cleared"), `${(body && body.removed) || 0}`);
+  loadInbox();
+};
 /* ---------- remote MCP self-test + per-agent panes ---------- */
 $("mcp-url").value = location.origin + "/mcp";
 $("btn-copy-mcp-url").onclick = () => copyText($("mcp-url").value, t("ag.mcp.url"));
@@ -533,13 +589,14 @@ function applyLang(l) {
   renderScenarios();
   renderAgentPane(curAg);
   if ($("e-permit").value) permitInfo(); else $("permit-info").innerHTML = t("permit.none");
-  renderFeed(); renderLedgerRows(); loadPolicy(); loadPending(); loadLLM(true);
+  renderFeed(); renderLedgerRows(); loadPolicy(); loadPending(); loadLLM(true); loadInbox();
 }
 $("btn-lang").onclick = () => applyLang(PROF_LANG === "ko" ? "en" : "ko");
 applyLang(PROF_LANG);
 loadPolicy();
 loadPending();
 loadLLM(true);
+loadInbox();
 refresh();
-setInterval(() => { if (!document.hidden) { refresh(); loadPending(); } }, 4000);
+setInterval(() => { if (!document.hidden) { refresh(); loadPending(); loadInbox(); } }, 4000);
 setInterval(loadPolicy, 30000);

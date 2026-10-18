@@ -4,7 +4,8 @@
 - First stable release. Everything below, hardened and fully tested.
 - Korean/English console UI (toggle, persisted, tested). Provider-matched LLM catalogs, latest models, per-model tool-calling flag (non-tool models flagged and blocked from save/run).
 - Transparent agents (auto-approve), remote MCP for Dots/Muse, approval queue.
-- 83 tests green (incl. release-hygiene + i18n parity + console-asset parse), performance audit published, whitepaper included.
+- Agent task inbox: queue a task in the console ("Queue for an agent") and any connected agent claims it over MCP (`prof.task.next` / `prof.task.done` / `prof.task.list`) and reports back; `prof task add|list|next|done` CLI + `POST /v1/tasks` REST; atomic single-claim with token-bound completion and stale-claim reclaim.
+- 98 tests green (incl. release-hygiene + i18n parity + console-asset parse), performance audit published, whitepaper included.
 - Verified packaging: sdist contains console/integrations/examples/docs, clean reinstall validated, Docker 1.0.0 smoke-tested.
 
 ## v0.1.0 (2026-10-14) — Developer Preview

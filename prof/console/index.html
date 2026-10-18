@@ -141,10 +141,23 @@
         <label><span data-i18n="ag.task.label">Task</span><textarea id="agent-task" rows="3">What tier is customer acme-42?</textarea></label>
         <div class="row"><label class="switch"><input type="checkbox" id="agent-human" /> <span data-i18n="ag.human">pre-approve high-tier for this run</span></label></div>
         <div class="row"><label class="switch"><input type="checkbox" id="agent-wait" /> <span data-i18n="ag.wait">wait for human approval (opens a request, polls the queue)</span></label></div>
-        <div class="row" style="margin-top:8px"><button id="btn-agent-run" class="primary" data-i18n="btn.run">Run with proof</button></div>
+        <div class="row" style="margin-top:8px">
+          <button id="btn-agent-run" class="primary" data-i18n="btn.run">Run with proof</button>
+          <button id="btn-task-queue" data-i18n="btn.queue">Queue for an agent</button>
+        </div>
       </div>
     </div>
     <div class="panel"><div class="phead"><h2 data-i18n="ag.result">Result</h2><span class="hint" id="agent-summary"></span></div><pre class="out big" id="o-agent">—</pre></div>
+    <div class="panel">
+      <div class="phead"><h2 data-i18n="ag.inbox">Agent task inbox</h2><span class="hint" id="inbox-count"></span></div>
+      <p class="mut small" data-i18n="ag.inbox.note">Queue a task here and any connected agent pulls it over MCP (prof.task.next) and reports back (prof.task.done). The built-in LLM loop runs "Run with proof" directly.</p>
+      <div class="row" style="margin:6px 0">
+        <input id="inbox-agent-filter" data-i18n-ph="ag.inbox.filter" placeholder="agent name (optional)" />
+        <button id="btn-inbox-refresh" data-i18n="btn.refresh">Refresh</button>
+        <button id="btn-inbox-clear" data-i18n="btn.clear.done">Clear finished</button>
+      </div>
+      <ul class="reqlist" id="inbox-list"><li class="mut">—</li></ul>
+    </div>
     <div class="panel">
       <div class="phead"><h2 data-i18n="ag.mcp">Remote MCP endpoint</h2><span class="pillok" id="mcp-state">checking…</span></div>
       <div class="row2">

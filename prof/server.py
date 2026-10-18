@@ -72,7 +72,8 @@ async def _security_middleware(request: Request, call_next):
         pass
     # per-IP sliding-window rate limit on hot mutating paths
     if request.method == "POST" and request.url.path in (
-            "/v1/approve", "/v1/execute", "/v1/agent/run"):
+            "/v1/approve", "/v1/execute", "/v1/agent/run",
+            "/v1/tasks", "/v1/tasks/next"):
         try:
             limit = int(os.environ.get("PROF_RATE_LIMIT", "300"))
         except ValueError:
@@ -181,6 +182,27 @@ class LLMConfigIn(BaseModel):
     provider: str = ""
     model: str = ""
     base_url: str = ""
+
+
+class TaskIn(BaseModel):
+    task: str
+    agent: str = ""              # optional: target one agent name
+    max_steps: int = 8
+    human_approve: bool = False
+    provider: str = ""           # execution hints for LLM-loop workers
+    model: str = ""
+    base_url: str = ""
+
+
+class TaskNextIn(BaseModel):
+    agent: str = ""
+
+
+class TaskDoneIn(BaseModel):
+    claim_token: str
+    ok: bool = True
+    result: str = ""
+    error: str = ""
 
 
 # In-process human-approval queue. Lost on restart by design in v0.1
@@ -407,6 +429,88 @@ def deny_request(rid: str, inp: DenyIn, _t: None = Depends(require_token)):
     _gateway.ledger.append("deny", rid, req["action"], req["resource"],
                            req["agent"], req["agent"], f"human-denied {rid}: {inp.reason}")
     return req
+
+
+# ---- agent task inbox (console assigns -> any agent claims over MCP) ----
+@app.post("/v1/tasks")
+def create_task(inp: TaskIn, _t: None = Depends(require_token)):
+    """Queue a task for an agent. The console "Queue for agent" button calls
+    this; MCP agents pull with POST /v1/tasks/next (prof.task.next)."""
+    from prof import tasks as _tasks
+    assert _approver and _gateway
+    try:
+        rec = _tasks.submit(inp.task, agent=inp.agent, max_steps=inp.max_steps,
+                            human_approve=inp.human_approve, provider=inp.provider,
+                            model=inp.model, base_url=inp.base_url)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    _gateway.ledger.append("task_submit", rec["id"], "agent.task",
+                           "task:" + rec["id"], _approver.subject,
+                           inp.agent or "agent:any", f"task={rec['task'][:120]}")
+    return rec
+
+
+@app.get("/v1/tasks")
+def list_tasks_endpoint(status: str = "", limit: int = 50,
+                        _t: None = Depends(require_token)):
+    from prof import tasks as _tasks
+    return {"tasks": _tasks.list_tasks(status=status, limit=limit),
+            "counts": _tasks.counts()}
+
+
+@app.get("/v1/tasks/{tid}")
+def get_task_endpoint(tid: str, _t: None = Depends(require_token)):
+    from prof import tasks as _tasks
+    rec = _tasks.get(tid)
+    if rec is None:
+        raise HTTPException(404, f"unknown task: {tid}")
+    return rec
+
+
+@app.post("/v1/tasks/next")
+def claim_task(inp: TaskNextIn, _t: None = Depends(require_token)):
+    """Claim the next ready task (FIFO). Empty {"task": null} when none."""
+    from prof import tasks as _tasks
+    assert _approver and _gateway
+    rec = _tasks.claim(inp.agent)
+    if rec is None:
+        return {"task": None}
+    _gateway.ledger.append("task_claim", rec["id"], "agent.task",
+                           "task:" + rec["id"], _approver.subject,
+                           rec["claimed_by"], f"claimed by {rec['claimed_by']}")
+    return {"task": rec}
+
+
+@app.post("/v1/tasks/{tid}/done")
+def complete_task(tid: str, inp: TaskDoneIn, _t: None = Depends(require_token)):
+    from prof import tasks as _tasks
+    assert _approver and _gateway
+    ok, msg, rec = _tasks.complete(tid, inp.claim_token, inp.ok, inp.result, inp.error)
+    if not ok or rec is None:
+        raise HTTPException(400, msg)
+    _gateway.ledger.append("task_done", tid, "agent.task", "task:" + tid,
+                           _approver.subject, rec["claimed_by"] or "agent",
+                           f"ok={rec['ok']} result={(rec['result'] or '')[:120]}")
+    return rec
+
+
+@app.post("/v1/tasks/{tid}/cancel")
+def cancel_task(tid: str, _t: None = Depends(require_token)):
+    from prof import tasks as _tasks
+    assert _approver and _gateway
+    ok, msg, rec = _tasks.cancel(tid)
+    if not ok or rec is None:
+        raise HTTPException(400, msg)
+    _gateway.ledger.append("task_cancel", tid, "agent.task", "task:" + tid,
+                           _approver.subject, "human", "cancelled")
+    return rec
+
+
+@app.post("/v1/tasks/clear")
+def clear_tasks(status: str = "", _t: None = Depends(require_token)):
+    """Drop finished tasks (or everything matching ?status=). Returns count."""
+    from prof import tasks as _tasks
+    return {"removed": _tasks.clear(status)}
 
 
 # ---- LLM agent surface ----

@@ -80,6 +80,12 @@ reloads that provider's catalog live; non-tool models are flagged and cannot
 be saved or run. Console assets carry a `?v=<version>` query and are served
 `no-cache` so an upgrade never runs a stale `i18n.js`/`app.js`.
 
+"Run with proof" drives the built-in loop above. **"Queue for an agent"**
+instead drops the same task into the shared **agent task inbox**
+(`prof.tasks`, `POST /v1/tasks`) — an external agent claims it over MCP
+(`prof.task.next`) and reports back (`prof.task.done`), and the console shows
+the result. See `docs/AGENTS.md §10`.
+
 ## Programmatic use
 
 ```python

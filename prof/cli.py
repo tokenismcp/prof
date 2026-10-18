@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 
 import click
@@ -246,6 +247,100 @@ def agent_run(task, model, base_url, max_steps, human_approve, wait_approval,
                      f"allowed={res.allowed} denied={res.denied} answer={res.answer[:160]}")
     click.echo(f"--- allowed={res.allowed} denied={res.denied} ---")
     click.echo(res.answer)
+
+
+def _task_client(gateway_url: str):
+    from prof.client import GatewayClient
+    url = gateway_url or os.environ.get("PROF_GATEWAY_URL", "")
+    if not url:
+        raise click.ClickException(
+            "no gateway configured — tasks live in the shared gateway inbox. "
+            "Set PROF_GATEWAY_URL (e.g. http://127.0.0.1:8091) or pass --gateway-url.")
+    return GatewayClient(url)
+
+
+@main.group("task")
+def task_group():
+    """Agent task inbox — the console queues work; any agent pulls it over MCP."""
+
+
+@task_group.command("add")
+@click.argument("task")
+@click.option("--agent", default="", help="target one agent name (default: any)")
+@click.option("--provider", default="")
+@click.option("--model", default="")
+@click.option("--max-steps", default=8, show_default=True)
+@click.option("--human-approve", is_flag=True, default=False)
+@click.option("--gateway-url", default=None)
+def task_add(task, agent, provider, model, max_steps, human_approve, gateway_url):
+    """Queue TASK in the shared inbox (prints the task id)."""
+    c = _task_client(gateway_url)
+    try:
+        out = c.submit_task(task, agent=agent, max_steps=max_steps,
+                            human_approve=human_approve, provider=provider, model=model)
+    except Exception as exc:
+        raise click.ClickException(str(exc))
+    click.echo(out["id"])
+
+
+@task_group.command("list")
+@click.option("--status", default="", help="pending|claimed|done|failed|cancelled")
+@click.option("--limit", default=50, show_default=True)
+@click.option("--gateway-url", default=None)
+def task_list(status, limit, gateway_url):
+    """List inbox tasks (newest first)."""
+    c = _task_client(gateway_url)
+    try:
+        items = c.list_tasks(status=status, limit=limit)
+    except Exception as exc:
+        raise click.ClickException(str(exc))
+    if not items:
+        click.echo("(empty)")
+        return
+    marks = {"pending": "·", "claimed": ">", "done": "+",
+             "failed": "x", "cancelled": "-"}
+    for x in items:
+        extra = f" -> {x['target_agent']}" if x.get("target_agent") else ""
+        got = f" [{x['claimed_by']}]" if x.get("claimed_by") else ""
+        click.echo(f"{marks.get(x['status'], '?')} {x['id']} {x['status']}"
+                   f"{extra}{got} {x['task'][:80]}")
+        if x.get("result"):
+            click.echo(f"    = {str(x['result'])[:160]}")
+        if x.get("error"):
+            click.echo(f"    ! {str(x['error'])[:160]}")
+
+
+@task_group.command("next")
+@click.option("--agent", default="", help="your agent name")
+@click.option("--gateway-url", default=None)
+def task_next(agent, gateway_url):
+    """Claim the next ready task (prints JSON with task + claim_token)."""
+    c = _task_client(gateway_url)
+    try:
+        t = c.task_next(agent=agent)
+    except Exception as exc:
+        raise click.ClickException(str(exc))
+    if not t:
+        click.echo("(no tasks)")
+        return
+    click.echo(json.dumps(t, ensure_ascii=False, indent=2))
+
+
+@task_group.command("done")
+@click.argument("task_id")
+@click.option("--token", required=True, help="claim_token from `prof task next`")
+@click.option("--result", default="")
+@click.option("--error", default="")
+@click.option("--fail", is_flag=True, default=False)
+@click.option("--gateway-url", default=None)
+def task_done(task_id, token, result, error, fail, gateway_url):
+    """Report a claimed task's outcome back to the inbox."""
+    c = _task_client(gateway_url)
+    try:
+        out = c.task_done(task_id, token, ok=not fail, result=result, error=error)
+    except Exception as exc:
+        raise click.ClickException(str(exc))
+    click.echo(json.dumps(out, ensure_ascii=False, indent=2))
 
 
 @main.command()

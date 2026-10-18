@@ -132,3 +132,30 @@ class GatewayClient:
 
     def list_requests(self, status: str = "pending") -> List[dict]:
         return self._call("GET", f"/v1/requests?status={status}").get("requests", [])
+
+    # ---- agent task inbox ----
+    def submit_task(self, task: str, agent: str = "", max_steps: int = 8,
+                    human_approve: bool = False, provider: str = "",
+                    model: str = "", base_url: str = "") -> dict:
+        return self._call("POST", "/v1/tasks",
+                          {"task": task, "agent": agent, "max_steps": max_steps,
+                           "human_approve": human_approve, "provider": provider,
+                           "model": model, "base_url": base_url})
+
+    def list_tasks(self, status: str = "", limit: int = 50) -> List[dict]:
+        return self._call("GET", f"/v1/tasks?status={status}&limit={limit}").get("tasks", [])
+
+    def task_next(self, agent: str = "") -> Optional[dict]:
+        return self._call("POST", "/v1/tasks/next", {"agent": agent}).get("task")
+
+    def task_done(self, tid: str, claim_token: str, ok: bool = True,
+                  result: str = "", error: str = "") -> dict:
+        return self._call("POST", f"/v1/tasks/{tid}/done",
+                          {"claim_token": claim_token, "ok": ok,
+                           "result": result, "error": error})
+
+    def cancel_task(self, tid: str) -> dict:
+        return self._call("POST", f"/v1/tasks/{tid}/cancel", {})
+
+    def clear_tasks(self, status: str = "") -> dict:
+        return self._call("POST", f"/v1/tasks/clear?status={status}", {})

@@ -77,6 +77,37 @@ def _tool_defs() -> list:
                 },
             },
         },
+        {
+            "name": "prof.task.next",
+            "description": "Claim the next task a human queued in the PROF console inbox (FIFO). Returns the task with a claim_token, or null when the queue is empty. Do the work with PROF tools, then call prof.task.done.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"agent": {"type": "string",
+                    "description": "your agent name (used for tasks targeted at one agent)"}},
+            },
+        },
+        {
+            "name": "prof.task.done",
+            "description": "Report the outcome of a claimed task back to the inbox (needs the task_id and claim_token from prof.task.next).",
+            "inputSchema": {
+                "type": "object", "required": ["task_id", "claim_token"],
+                "properties": {
+                    "task_id": {"type": "string"}, "claim_token": {"type": "string"},
+                    "ok": {"type": "boolean", "default": True},
+                    "result": {"type": "string"},
+                    "error": {"type": "string"},
+                },
+            },
+        },
+        {
+            "name": "prof.task.list",
+            "description": "List inbox tasks (read-only), newest first. Optional status filter: pending, claimed, done, failed, cancelled.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"status": {"type": "string"},
+                               "limit": {"type": "integer", "default": 20}},
+            },
+        },
     ]
 
 
@@ -152,6 +183,8 @@ class MCPServer:
     def _call(self, name: str, args: Dict[str, Any]) -> Dict[str, Any]:
         if name == "prof.approve":
             return self._text(self._approve(args))
+        if name.startswith("prof.task."):
+            return self._text(self._task(name, args))
         if name not in _TOOL_BINDING:
             return self._text({"ok": False, "error": f"unknown tool: {name}"}, True)
         action, resource = _TOOL_BINDING[name]
@@ -187,6 +220,44 @@ class MCPServer:
         if not dec.allow:
             return self._text({"ok": False, "decision": dec.reason}, True)
         return self._text({"ok": True, "decision": dec.reason, "result": result, "ledger_seq": dec.ledger_seq})
+
+    def _task(self, name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Inbox tools. Remote mode -> shared gateway; local mode -> this
+        process's store (which is the gateway's when serving POST /mcp)."""
+        if name == "prof.task.next":
+            agent = str(args.get("agent", "agent:mcp"))
+            if self.remote is not None:
+                try:
+                    return {"ok": True, "task": self.remote.task_next(agent)}
+                except Exception as exc:
+                    return {"ok": False, "error": str(exc)}
+            from prof import tasks as _tasks
+            return {"ok": True, "task": _tasks.claim(agent)}
+        if name == "prof.task.done":
+            tid = str(args.get("task_id", ""))
+            token = str(args.get("claim_token", ""))
+            ok = bool(args.get("ok", True))
+            result = str(args.get("result", ""))
+            error = str(args.get("error", ""))
+            if self.remote is not None:
+                try:
+                    return {"ok": True, "task": self.remote.task_done(tid, token, ok, result, error)}
+                except Exception as exc:
+                    return {"ok": False, "error": str(exc)}
+            from prof import tasks as _tasks
+            done, msg, rec = _tasks.complete(tid, token, ok, result, error)
+            return {"ok": done, "message": msg, "task": rec}
+        if name == "prof.task.list":
+            status = str(args.get("status", ""))
+            limit = int(args.get("limit", 20))
+            if self.remote is not None:
+                try:
+                    return {"ok": True, "tasks": self.remote.list_tasks(status, limit)}
+                except Exception as exc:
+                    return {"ok": False, "error": str(exc)}
+            from prof import tasks as _tasks
+            return {"ok": True, "tasks": _tasks.list_tasks(status, limit)}
+        return {"ok": False, "error": f"unknown task tool: {name}"}
 
     def _auto_permit(self, name: str, action: str, resource: str,
                      call_args: Dict[str, Any]) -> Optional[Dict[str, Any]]:

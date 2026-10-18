@@ -114,6 +114,49 @@ prof agent-run "Send 250 to acct-9" --gateway-url http://127.0.0.1:8091 --wait-a
 # high-tier opens a queue request; a human approves in console → payment executes
 ```
 
+## 10 · Task inbox — assign work from the console
+
+The console **Agents → Run a task** box has two buttons. "Run with proof"
+runs PROF's built-in LLM loop directly. **"Queue for an agent"** drops the
+task into a shared **inbox** that any connected agent can pull — this is how
+a human hands work to an agent that runs *elsewhere* (Claude Code, Codex,
+Gemini CLI, Dots, Muse, a background worker …). The agent doesn't need to be
+reachable by PROF; it only polls.
+
+Three MCP tools drive it (exposed over stdio **and** `POST /mcp`):
+
+| Tool | Purpose |
+|---|---|
+| `prof.task.next` | claim the oldest ready task (FIFO). Returns the task + a `claim_token`, or `null` when empty. Targeted tasks (`--agent name`) only go to that agent. |
+| `prof.task.done` | report the outcome: `task_id`, `claim_token`, `ok`, `result` / `error`. |
+| `prof.task.list` | read-only view (optional `status` filter). |
+
+Properties: a claim is **atomic** (one task, one agent, one token); completion
+must present that token; a claimed-but-unfinished task returns to the pool
+after 10 minutes so a crashed agent never strands work; every transition is
+ledger-logged (`task_submit` / `task_claim` / `task_done` / `task_cancel`).
+
+Workflow example (any MCP agent):
+
+```text
+1. prof.task.next {"agent":"agent:claude"}   → {"task": {"id":"task-…","task":"…","claim_token":"…"}}
+2. …do the work with PROF tools (crm.lookup, file.write, …)…
+3. prof.task.done {"task_id":"task-…","claim_token":"…","ok":true,"result":"Acme Corp is gold"}
+   → the console inbox shows the result
+```
+
+HTTP / CLI equivalents (tasks live in the gateway, so point at it):
+
+```sh
+PROF_GATEWAY_URL=http://127.0.0.1:8091 prof task add "report acme-42" --agent agent:claude
+PROF_GATEWAY_URL=http://127.0.0.1:8091 prof task list
+PROF_GATEWAY_URL=http://127.0.0.1:8091 prof task next --agent agent:claude   # prints task + claim_token
+PROF_GATEWAY_URL=http://127.0.0.1:8091 prof task done task-… --token … --result "done"
+```
+
+REST: `POST /v1/tasks`, `GET /v1/tasks`, `GET /v1/tasks/{id}`, `POST /v1/tasks/next`,
+`POST /v1/tasks/{id}/done`, `POST /v1/tasks/{id}/cancel`, `POST /v1/tasks/clear`.
+
 ## Tool → PROF mapping (hooks)
 
 | Agent tool | PROF action / resource | Tier |
