@@ -17,7 +17,7 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-  "cryptography>=40",
+  "cryptography>=50.0.2",
   "pydantic>=2",
   "click>=8",
   "fastapi>=0.100",
