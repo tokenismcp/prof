@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 190" width="600" height="190" role="img" aria-label="PROF — Think Freely. Act With Proof.">
+  <defs>
+    <linearGradient id="g" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#1D3FD8"/><stop offset="1" stop-color="#22B8FF"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke="#F8FAFC" stroke-width="24" stroke-linejoin="miter" stroke-linecap="butt">
+    <path d="M32 124V34H92a26 26 0 0 1 0 52H32"/>
+    <path d="M176 124V34H236a26 26 0 0 1 0 52H176M222 86l44 38"/>
+    <rect x="326" y="34" width="108" height="90" rx="32"/>
+    <path d="M492 124V34H570M492 82H556"/>
+  </g>
+  <g fill="url(#g)">
+    <path d="M100 14h42l-14 14h-42z"/>
+    <path d="M552 14h42l-14 14h-42z"/>
+  </g>
+  <text x="300" y="172" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="20" letter-spacing="5.5" fill="#CBD5E1">Think Freely. <tspan fill="#2F6BFF">Act With Proof.</tspan></text>
+</svg>

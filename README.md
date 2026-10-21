@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="./logo-white.png" alt="PROF — Think Freely. Act With Proof." width="480" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./assets/logo-dark.svg" />
+    <img src="./assets/logo-light.svg" alt="PROF — Think Freely. Act With Proof." width="480" />
+  </picture>
 </p>
 
 <h1 align="center">PROF — Proof-Required Operation Framework</h1>
