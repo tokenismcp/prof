@@ -32,7 +32,7 @@ Issues = "https://github.com/tokenismcp/prof/issues"
 Changelog = "https://github.com/tokenismcp/prof/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.1", "httpx>=0.25"]
+dev = ["pytest>=9.1.1", "pytest-cov>=5", "ruff>=0.1", "httpx>=0.25"]
 mcp = ["mcp>=1.0"]
 
 [project.scripts]
