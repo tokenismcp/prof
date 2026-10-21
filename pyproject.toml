@@ -18,7 +18,7 @@ classifiers = [
 ]
 dependencies = [
   "cryptography>=40",
-  "pydantic>=2",
+  "pydantic>=2.14.1",
   "click>=8",
   "fastapi>=0.100",
   "uvicorn>=0.20",
