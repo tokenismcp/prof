@@ -10,7 +10,7 @@
   <img alt="python" src="https://img.shields.io/badge/python-3.9%2B-blue" />
   <img alt="license" src="https://img.shields.io/badge/license-PolyForm%20NC%20%2B%20Commercial-blue" />
   <a href="https://github.com/tokenismcp/prof/actions/workflows/ci.yml"><img alt="ci" src="https://github.com/tokenismcp/prof/actions/workflows/ci.yml/badge.svg" /></a>
-  <img alt="tests" src="https://img.shields.io/badge/tests-0-brightgreen" />
+  <img alt="tests" src="https://img.shields.io/badge/tests-123-brightgreen" />
   <img alt="mcp" src="https://img.shields.io/badge/MCP-ready-8A2BE2" />
 </p>
 
@@ -218,7 +218,7 @@ sdk-typescript/  TS Gateway client (beta)
 papers/          PROF whitepaper v1.0 (md) · PROF+HCCAI whitepaper v2.0 (pdf) · HCCAI v6.9 paper (pdf)
 bench/           local microbenchmark (env-disclosed)
 docs/            AUDIT · ARCHITECTURE · SECURITY_MODEL · VERIFICATION · ROADMAP · MCP · POLICY · COMPARISON · OPERATIONS · AGENTS · LLM · DATA
-tests/           0 enforcement + API + MCP + LLM + data + storage + security + e2e + release + i18n tests
+tests/           123 enforcement + API + MCP + LLM + data + storage + security + e2e + release + i18n tests
 ```
 
 ## Contributing
