@@ -33,7 +33,7 @@ Changelog = "https://github.com/tokenismcp/prof/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.1", "httpx>=0.25"]
-mcp = ["mcp>=1.0"]
+mcp = ["mcp>=2.3.0"]
 
 [project.scripts]
 prof = "prof.cli:main"
