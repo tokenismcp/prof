@@ -1,8 +1,8 @@
+# pip is intentionally not listed: dependabot would raise the lower bounds in
+# pyproject.toml (cryptography>=50, mcp>=2, ...) and break the supported
+# Python 3.9+ range. Dependency floors are bumped by hand with the CI matrix.
 version: 2
 updates:
-  - package-ecosystem: pip
-    directory: "/"
-    schedule: { interval: weekly }
   - package-ecosystem: github-actions
     directory: "/"
-    schedule: { interval: weekly }
+    schedule: { interval: monthly }
