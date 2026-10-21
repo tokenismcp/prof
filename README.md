@@ -43,6 +43,8 @@ For hardware-rooted, threshold-governed deployments, PROF composes with HCCAI �
 
 **License:** free for noncommercial use (PolyForm Noncommercial 1.0.0). Using PROF in a business or product needs a commercial license — [details](COMMERCIAL-LICENSE.md).
 
+**Built by [4Chains Inc.](https://4chains.site)** — privacy-preserving infrastructure for the AI era. **Research by [J1729Labs](https://j1729labs.site)** — cryptography and AI systems; the PROF/HCCAI papers are in [papers/](papers/).
+
 ---
 
 ## 5-minute quickstart
@@ -227,4 +229,4 @@ Fail-closed first, no absolute claims, small reviewable PRs. See [`CONTRIBUTING.
 
 ---
 
-<p align="center"><b>Think Freely. Act With Proof.</b> — 4Chains Inc., PROF v1.0.<br/>Standalone from HCCAI; inherits its one-shot capability + hash-chain audit ideas. EHCT is an integration candidate, not a replacement for signatures or enforcement.</p>
+<p align="center"><b>Think Freely. Act With Proof.</b> — <a href="https://4chains.site">4Chains Inc.</a> · Research by <a href="https://j1729labs.site">J1729Labs</a> · PROF v1.0.<br/>Standalone from HCCAI; inherits its one-shot capability + hash-chain audit ideas. EHCT is an integration candidate, not a replacement for signatures or enforcement.</p>

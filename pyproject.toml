@@ -26,7 +26,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/tokenismcp/prof"
+Homepage = "https://4chains.site"
+Research = "https://j1729labs.site"
+Repository = "https://github.com/tokenismcp/prof"
 Source = "https://github.com/tokenismcp/prof"
 Issues = "https://github.com/tokenismcp/prof/issues"
 Changelog = "https://github.com/tokenismcp/prof/blob/main/CHANGELOG.md"

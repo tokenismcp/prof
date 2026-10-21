@@ -11,4 +11,6 @@ Where they differ from the repository, **the repository is authoritative**.
 | Whitepaper v2.0, §4 "nonce ... pruned once dead" | Pruned one second early (replay window at `now == expiry`) | Fixed: pruned only after expiry |
 | HCCAI (Go) results, §9.2 | Refer to the separate HCCAI codebase | Not part of this repository; not re-verified here |
 
+Authors: AI-Based Cryptography Research Team, [J1729Labs](https://j1729labs.site). Publisher/licensor of the software: [4Chains Inc.](https://4chains.site)
+
 PROF whitepaper v1.0 (`PROF-whitepaper-v1.0.md`) has been updated for the license; its test count is historical.

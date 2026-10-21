@@ -35,6 +35,8 @@ Any use that is not noncommercial under the PolyForm terms, including:
 Pricing and terms are agreed per customer. To request a quote, email
 **director@j1729labs.online** (subject: "PROF commercial license").
 
+Licensor: [4Chains Inc.](https://4chains.site) · Research: [J1729Labs](https://j1729labs.site)
+
 ## Contributions
 
 Contributions are accepted under the terms in [CONTRIBUTING.md](CONTRIBUTING.md): you
