@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import os
 import urllib.request
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 
 class ClientError(RuntimeError):

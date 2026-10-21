@@ -8,8 +8,8 @@
 ## Enforcement layers (all live, all tested)
 
 - **Bearer auth**: set `PROF_API_TOKEN` and every state-changing or
-  approval-queue endpoint requires `Authorization: Bearer`. Reads
-  (ledger, policy, metrics, health) stay open for transparency. The console
+  approval-queue endpoint requires `Authorization: Bearer`. The ledger
+  requires the token too; policy, metrics and health stay open. The console
   prompts for the token (lock icon, per-tab session storage).
 - **Security headers** on every response (`nosniff`, `DENY` framing,
   no referrer). **1 MB body cap** (413) and **per-IP rate limiting**
@@ -17,6 +17,15 @@
 - **Fail-closed everywhere**: bad permits, expired/replayed/tampered,
   unknown tools, effect errors, unreachable LLM (502) — all denied and
   ledger-logged, never crashing the server loop.
+
+- **Human gate**: `/v1/approve` and MCP `prof.approve` refuse high-tier actions
+  (`PROF_REQUIRE_HUMAN` defaults to on); only the human approval queue signs them.
+- **Network exposure**: the gateway refuses to listen on a non-loopback address
+  without a strong `PROF_API_TOKEN` (16+ chars, not a placeholder).
+- **Known limits**: body cap relies on `Content-Length` (put a reverse proxy
+  limit in front); the token is one shared secret (no per-agent identity yet);
+  the LLM-loop / SSRF surface is admin-only but unrestricted by egress policy;
+  ledger tail truncation is detectable only against an external head anchor.
 
 ## Boundaries (v0.1)
 

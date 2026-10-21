@@ -86,8 +86,9 @@ class ResourceDB:
         return os.environ.get(SANDBOX_ENV, DEFAULT_SANDBOX)
 
     def write_file(self, path: str, content: str) -> Dict[str, Any]:
-        norm = os.path.normpath(path)
-        root = os.path.normpath(self.sandbox())
+        # realpath, not normpath: a symlink inside the sandbox must not escape it.
+        norm = os.path.realpath(path)
+        root = os.path.realpath(self.sandbox())
         if norm != root and not norm.startswith(root + os.sep):
             raise PermissionError(f"outside sandbox ({root}): {path}")
         pre = self.file_state(norm)

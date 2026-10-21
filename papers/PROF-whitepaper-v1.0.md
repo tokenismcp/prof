@@ -21,7 +21,7 @@ security boundary from the model's reasoning to the **execution step**:
 every side effect must carry a signed, scoped, single-use **Permit** that a
 server-side **Gateway** verifies before the effect runs, and every decision
 is appended to a tamper-evident **Ledger**. Models think freely; only
-approved actions execute. The reference implementation (Python, MIT) covers
+approved actions execute. The reference implementation (Python, PolyForm Noncommercial + commercial license) covers
 a policy engine, an MCP server (stdio + remote Streamable HTTP), an
 API-driven LLM agentic loop, a human-approval workflow, and an operations
 console — verified by 72 tests and benchmarked with disclosed method.

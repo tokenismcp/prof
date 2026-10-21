@@ -25,17 +25,20 @@ from typing import Any, Dict
 _mcp_server = None
 
 
-def get_server():
+def get_server(approver=None, gateway=None):
+    """One MCPServer per gateway. When embedded in the HTTP gateway, pass its
+    approver+gateway so /mcp shares the server's key, policy, ledger and nonces
+    (a private ephemeral gateway would sit outside the audit trail)."""
     global _mcp_server
-    if _mcp_server is None:
+    if _mcp_server is None or (gateway is not None and _mcp_server.gw is not gateway):
         from prof.mcpd import MCPServer
-        _mcp_server = MCPServer()
+        _mcp_server = MCPServer(approver=approver, gateway=gateway)
     return _mcp_server
 
 
-def handle_http(msg: Dict[str, Any]) -> tuple[int, Any]:
+def handle_http(msg: Dict[str, Any], approver=None, gateway=None) -> tuple[int, Any]:
     """Process one JSON-RPC message. Returns (http_status, json_body_or_None)."""
-    resp = get_server().handle(msg)
+    resp = get_server(approver, gateway).handle(msg)
     if resp is None:
         return 202, None  # notification acknowledged
     return 200, resp
@@ -48,4 +51,4 @@ def check_bearer(authorization: str) -> bool:
         return True
     if not authorization.lower().startswith("bearer "):
         return False
-    return hmac.compare_digest(authorization[7:].strip(), want)
+    return hmac.compare_digest(authorization[7:].strip().encode(), want.encode())

@@ -13,6 +13,7 @@ type: Opaque
 stringData:
   # fill via: kubectl -n prof create secret generic prof-approver --from-literal=priv='...' --dry-run=client -o yaml
   priv: "CHANGE_ME"
+  token: "CHANGE_ME"   # openssl rand -hex 24
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -51,6 +52,8 @@ spec:
             - { name: PROF_SUBJECT, value: "user:approver" }
             - name: PROF_APPROVER_PRIV
               valueFrom: { secretKeyRef: { name: prof-approver, key: priv } }
+            - name: PROF_API_TOKEN   # required: the gateway refuses to listen publicly without it
+              valueFrom: { secretKeyRef: { name: prof-approver, key: token } }
             - { name: PROF_LEDGER, value: /data/ledger.json }
             - { name: PROF_NONCES, value: /data/nonces.json }
             - { name: PROF_DB, value: /data/prof.db }

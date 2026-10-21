@@ -132,11 +132,14 @@ class MCPServer:
     nonce store as the console, CLI and LLM loop. One gateway, many frontends.
     """
 
-    def __init__(self, gateway_url: str = "") -> None:
+    def __init__(self, gateway_url: str = "", approver=None, gateway=None) -> None:
         import os as _os
         self.remote = None
-        self.gateway_url = gateway_url or _os.environ.get("PROF_GATEWAY_URL", "")
-        if self.gateway_url:
+        self.gateway_url = "" if gateway is not None else (
+            gateway_url or _os.environ.get("PROF_GATEWAY_URL", ""))
+        if gateway is not None:  # embedded in the HTTP gateway: share its state
+            self.approver, self.gw = approver, gateway
+        elif self.gateway_url:
             from prof.client import GatewayClient
             self.remote = GatewayClient(self.gateway_url)
             self.approver, self.gw = None, None
@@ -298,9 +301,12 @@ class MCPServer:
         pol = self.gw.policy.evaluate(action, resource, call_args)
         if not pol.allow:
             return {"ok": False, "error": f"policy deny: {pol.reason}"}
+        if pol.require_human:  # an agent must not sign its own high-tier permit
+            return {"ok": False, "error": f"high-tier action: human approval required ({pol.reason}); "
+                                          "open a request (POST /v1/requests or console Approvals)"}
         p = Permit(subject=self.approver.subject, agent=agent, action=action, resource=resource,
                    args_hash=hash_args(call_args), policy_id=self.gw.policy.policy_id,
-                   expiry=int(time.time()) + ttl)
+                   expiry=int(time.time()) + max(1, min(ttl, 3600)))
         p.sign(self.approver._sk)
         self.gw.ledger.append("approve", p.nonce, p.action, p.resource, p.subject, p.agent, f"tier={pol.tier} via-mcp")
         return {"ok": True, "permit": p.to_dict(), "tier": pol.tier}

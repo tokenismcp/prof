@@ -11,10 +11,20 @@ Policy file format (YAML): see examples/policies/default.yaml
 from __future__ import annotations
 
 import fnmatch
+import math
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 import yaml
+
+
+def _unsafe_resource(resource: str) -> bool:
+    """`*` in fnmatch also matches `/`, so `file:/tmp/**` would otherwise cover
+    `file:/tmp/../etc/passwd`. Reject traversal segments and control characters."""
+    if any(ord(c) < 32 for c in resource):
+        return True
+    path = resource.split(":", 1)[1] if ":" in resource else resource
+    return ".." in path.replace("\\", "/").split("/")
 
 
 @dataclass
@@ -46,14 +56,24 @@ class Policy:
         self.default_tier = default_tier
 
     def evaluate(self, action: str, resource: str, args: Dict[str, Any]) -> PolicyDecision:
+        if _unsafe_resource(resource):
+            return PolicyDecision(False, "high", "unsafe resource (path traversal / control chars)", True, 1)
         for r in self.rules:
             if r.matches(action, resource):
-                if r.max_amount is not None and "amount" in args:
+                if r.max_amount is not None:
+                    # Fail-closed: a capped rule needs a finite, positive amount.
+                    # (NaN compares False against everything, so it must be rejected
+                    # explicitly; a missing key must not skip the cap.)
+                    if "amount" not in args:
+                        return PolicyDecision(False, "high", "amount required by rule cap", True, r.quorum)
                     try:
-                        if float(args["amount"]) > float(r.max_amount):
-                            return PolicyDecision(False, "high", f"amount {args['amount']} exceeds max {r.max_amount}", True, r.quorum)
+                        amt = float(args["amount"])
                     except (TypeError, ValueError):
                         return PolicyDecision(False, "high", "unparsable amount", True, r.quorum)
+                    if not math.isfinite(amt) or amt <= 0:
+                        return PolicyDecision(False, "high", f"invalid amount {args['amount']!r}", True, r.quorum)
+                    if amt > float(r.max_amount):
+                        return PolicyDecision(False, "high", f"amount {args['amount']} exceeds max {r.max_amount}", True, r.quorum)
                 req_human = r.require_human or r.tier == "high"
                 return PolicyDecision(True, r.tier, f"matched {r.action} {r.resource} -> {r.tier}", req_human, r.quorum)
         # default deny unless default_tier is low (we default to high=require human)

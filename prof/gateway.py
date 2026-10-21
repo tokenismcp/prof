@@ -123,5 +123,5 @@ class Gateway:
                                req.permit.subject, req.permit.agent, f"effect failed: {exc}")
             return GatewayDecision(False, f"deny: effect failed: {exc}", tier=dec.tier), None
         self.ledger.append("allow", req.permit.nonce + ":result", req.action, req.resource,
-                           req.permit.subject, req.permit.agent, f"result ok")
+                           req.permit.subject, req.permit.agent, "result ok")
         return dec, result

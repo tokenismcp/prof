@@ -45,8 +45,9 @@ def test_writes_need_token_when_configured(monkeypatch):
                   headers={"Authorization": "Bearer wrong"}).status_code == 401
     r = c.post("/v1/approve", json=body, headers={"Authorization": "Bearer s3cret"})
     assert r.status_code == 200
-    # reads stay open
-    assert c.get("/v1/ledger").status_code == 200
+    # aggregate reads stay open; the ledger (subjects, resources, task text) does not
+    assert c.get("/v1/ledger").status_code == 401
+    assert c.get("/v1/ledger", headers={"Authorization": "Bearer s3cret"}).status_code == 200
     assert c.get("/metrics").status_code == 200
     # approval queue reads are protected too
     assert c.get("/v1/requests").status_code == 401

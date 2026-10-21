@@ -131,5 +131,13 @@ class Ledger:
             if head == "[":
                 raw = json.load(f)  # v1 array format
             else:
-                raw = [json.loads(line) for line in f if line.strip()]
+                lines = [ln for ln in f.read().splitlines() if ln.strip()]
+                raw = []
+                for i, ln in enumerate(lines):
+                    try:
+                        raw.append(json.loads(ln))
+                    except json.JSONDecodeError:
+                        if i == len(lines) - 1:   # torn final append from a crash
+                            break
+                        raise
         self.entries = [LedgerEntry(**r) for r in raw]

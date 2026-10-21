@@ -1,4 +1,4 @@
-include README.md LICENSE CHANGELOG.md pyproject.toml setup.cfg setup.py
+include README.md LICENSE COMMERCIAL-LICENSE.md SECURITY.md CHANGELOG.md pyproject.toml setup.cfg setup.py
 recursive-include prof *.html *.js *.css *.svg *.png
 recursive-include examples *.py *.yaml
 recursive-include integrations *.sh *.py *.json *.toml
@@ -7,7 +7,7 @@ recursive-include tests *.py
 recursive-include bench *.py
 recursive-include deploy *
 recursive-include configs *.example
-recursive-include papers *.md
+recursive-include papers *.md *.pdf
 recursive-include assets *.png
 global-exclude __pycache__ *.pyc *.pyo
 global-exclude .DS_Store

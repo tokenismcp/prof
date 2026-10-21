@@ -44,21 +44,25 @@ def _api_token() -> str:
     return os.environ.get("PROF_API_TOKEN", "")
 
 
-async def require_token(request: Request) -> None:
-    """Bearer auth for every state-changing or approval-queue endpoint.
-
-    Disabled when PROF_API_TOKEN is unset (local demo). Set it in any
-    shared/production deployment; the console prompts for it (lock icon).
-    """
+def _check_token(request: Request) -> None:
     want = _api_token()
     if not want:
         return
     import hmac
     got = request.headers.get("authorization", "")
     if not got.lower().startswith("bearer ") or not hmac.compare_digest(
-            got[7:].strip(), want):
+            got[7:].strip().encode(), want.encode()):
         raise HTTPException(401, "missing or invalid API token",
                             headers={"WWW-Authenticate": "Bearer"})
+
+
+async def require_token(request: Request) -> None:
+    """Bearer auth for every state-changing, approval-queue or ledger endpoint.
+
+    Disabled when PROF_API_TOKEN is unset (loopback demo only: serve() refuses
+    to bind a public interface without it). The console prompts for it (lock icon).
+    """
+    _check_token(request)
 
 
 @app.middleware("http")
@@ -102,6 +106,9 @@ _rate_buckets: Dict[str, list] = {}
 def _check_rate(key_host: str, path: str, limit: int) -> bool:
     import time as _t
     now = _t.time()
+    if len(_rate_buckets) > 10_000:  # bound memory under address-spray
+        for k in [k for k, v in _rate_buckets.items() if not v or now - v[-1] >= 60]:
+            del _rate_buckets[k]
     key = f"{key_host}:{path}"
     hits = [t for t in _rate_buckets.get(key, []) if now - t < 60]
     if len(hits) >= limit:
@@ -130,6 +137,9 @@ def _init() -> None:
         ledger=Ledger(os.environ.get("PROF_LEDGER", None)),
         nonces=NonceStore(os.environ.get("PROF_NONCES", None)),
     )
+    ok, msg = _gateway.ledger.verify_chain()
+    if not ok:
+        raise RuntimeError(f"refusing to start: ledger failed verification ({msg})")
     # Initialize the persistent resource DB now so seed/migration errors
     # fail fast at startup instead of on first tool call.
     get_db()
@@ -292,7 +302,7 @@ def auto_approve(inp: ApproveIn, _t: None = Depends(require_token)):
         resource=inp.resource,
         args_hash=hash_args(inp.args),
         policy_id=_gateway.policy.policy_id,
-        expiry=int(time.time()) + min(int(inp.ttl_s), 300),
+        expiry=int(time.time()) + min(_clamp_ttl(inp.ttl_s), 300),
         constraints={**inp.constraints, "auto": True},
     )
     p.sign(_approver._sk)
@@ -301,14 +311,26 @@ def auto_approve(inp: ApproveIn, _t: None = Depends(require_token)):
     return p.to_dict()
 
 
+def _clamp_ttl(ttl_s: int) -> int:
+    try:
+        cap = int(os.environ.get("PROF_MAX_TTL_S", "3600"))
+    except ValueError:
+        cap = 3600
+    return max(1, min(int(ttl_s), cap))
+
+
 @app.post("/v1/approve")
 def approve(inp: ApproveIn, _t: None = Depends(require_token)):
     assert _approver and _gateway
     dec = _gateway.policy.evaluate(inp.action, inp.resource, inp.args)
     if not dec.allow:
         raise HTTPException(403, f"policy deny: {dec.reason}")
-    if dec.require_human and os.environ.get("PROF_REQUIRE_HUMAN", "0") == "1":
-        raise HTTPException(403, "human approval required (PROF_REQUIRE_HUMAN=1)")
+    # Defense in depth: whoever holds the API token (often the agent itself) must
+    # not be able to mint a high-tier permit. High tier goes through /v1/requests
+    # and a human decision. Opt out explicitly with PROF_REQUIRE_HUMAN=0 only for
+    # trusted-automation deployments.
+    if dec.require_human and os.environ.get("PROF_REQUIRE_HUMAN", "1") != "0":
+        raise HTTPException(403, f"high-tier action: human approval required ({dec.reason})")
     p = Permit(
         subject=inp.subject or _approver.subject,
         agent=inp.agent,
@@ -316,7 +338,7 @@ def approve(inp: ApproveIn, _t: None = Depends(require_token)):
         resource=inp.resource,
         args_hash=hash_args(inp.args),
         policy_id=_gateway.policy.policy_id,
-        expiry=int(time.time()) + int(inp.ttl_s),
+        expiry=int(time.time()) + _clamp_ttl(inp.ttl_s),
         constraints=inp.constraints,
     )
     p.sign(_approver._sk)
@@ -404,7 +426,7 @@ def approve_request(rid: str, _t: None = Depends(require_token)):
     p = Permit(subject=_approver.subject, agent=req["agent"], action=req["action"],
                resource=req["resource"], args_hash=hash_args(req["args"]),
                policy_id=_gateway.policy.policy_id,
-               expiry=int(time.time()) + req["ttl_s"],
+               expiry=int(time.time()) + _clamp_ttl(req["ttl_s"]),
                constraints={"approved_by": "human", "request_id": rid})
     p.sign(_approver._sk)
     req["status"] = "approved"
@@ -530,8 +552,21 @@ def llm_status():
                               "blurb": v["blurb"]} for k, v in PROVIDERS.items()}}
 
 
+def _drop_untrusted_key(cfg) -> None:
+    """The LLM API key belongs to the *configured* provider at its *known*
+    endpoint. If a request redirects either, never attach the key (it would be
+    sent to a caller-chosen host)."""
+    from prof.llm import PROVIDERS
+    env_provider = os.environ.get("PROF_LLM_PROVIDER", "ollama")
+    trusted = {PROVIDERS[cfg.provider]["base_url"].rstrip("/")}
+    if os.environ.get("PROF_LLM_BASE_URL"):
+        trusted.add(os.environ["PROF_LLM_BASE_URL"].rstrip("/"))
+    if cfg.provider != env_provider or cfg.base_url.rstrip("/") not in trusted:
+        cfg.api_key = ""
+
+
 @app.get("/v1/llm/models")
-def llm_models(provider: str = "", base_url: str = ""):
+def llm_models(request: Request, provider: str = "", base_url: str = ""):
     """Model catalog for a provider. Uses server env (keys never leave server).
 
     Optional ?provider=&base_url= previews another endpoint's catalog.
@@ -540,6 +575,8 @@ def llm_models(provider: str = "", base_url: str = ""):
     from prof.llm import FALLBACK_MODELS, LLMConfig, PROVIDERS, list_models
     if provider and provider not in PROVIDERS:
         raise HTTPException(400, "unknown provider (see /v1/llm/status)")
+    if base_url:
+        _check_token(request)  # makes the server fetch a caller-chosen URL
     cfg = LLMConfig(provider=provider or None) if provider else LLMConfig()
     if provider and not base_url:
         # Previewing a provider: the env endpoint belongs to the gateway's own
@@ -549,6 +586,7 @@ def llm_models(provider: str = "", base_url: str = ""):
             cfg.base_url = PROVIDERS[provider]["base_url"]
     if base_url:
         cfg.base_url = base_url
+    _drop_untrusted_key(cfg)
     models = list_models(cfg)
     if models:
         return {"provider": cfg.provider, "models": models, "fallback": False}
@@ -570,7 +608,12 @@ def llm_config(inp: LLMConfigIn, _t: None = Depends(require_token)):
     allowed = {"provider", "model", "base_url"}
     data = {k: v for k, v in inp.model_dump().items() if k in allowed and v}
     if "provider" in data and data["provider"] not in PROVIDERS:
-        raise HTTPException(400, f"unknown provider (see /v1/llm/status)")
+        raise HTTPException(400, "unknown provider (see /v1/llm/status)")
+    for k, v in data.items():  # env-file values: no newlines/control chars (injection)
+        if any(ord(ch) < 32 or ord(ch) == 127 for ch in v):
+            raise HTTPException(400, f"invalid characters in {k}")
+    if "base_url" in data and not data["base_url"].startswith(("http://", "https://")):
+        raise HTTPException(400, "base_url must be http(s)")
     cfg_dir = _pl.Path(__file__).resolve().parent.parent / "configs"
     cfg_dir.mkdir(exist_ok=True)
     lines = []
@@ -606,6 +649,7 @@ def agent_run(inp: AgentRunIn, _t: None = Depends(require_token)):
         cfg.model = inp.model_override
     if inp.base_url_override:
         cfg.base_url = inp.base_url_override
+    _drop_untrusted_key(cfg)
     try:
         res = run_task(inp.task, _approver, _gateway,
                        {"crm.lookup": crm_lookup, "file.write": file_write,
@@ -678,7 +722,7 @@ async def mcp_http_endpoint(request: Request):
         return JSONResponse({"jsonrpc": "2.0", "id": msg.get("id") if isinstance(msg, dict) else None,
                              "error": {"code": -32600, "message": "invalid request"}},
                             status_code=400)
-    status, resp = handle_http(msg)
+    status, resp = handle_http(msg, approver=_approver, gateway=_gateway)
     if resp is None:
         return Response(status_code=status)
     return JSONResponse(resp, status_code=status)
@@ -694,7 +738,7 @@ async def mcp_http_get():
 
 
 @app.get("/v1/ledger")
-def ledger(limit: int = 100):
+def ledger(limit: int = 100, _t: None = Depends(require_token)):
     assert _gateway
     ok, msg = _gateway.ledger.verify_chain()
     limit = max(1, min(limit, 1000))
@@ -719,11 +763,31 @@ def metrics():
             "ledger_entries": len(_gateway.ledger.entries), "nonces": _gateway.nonces.size()}
 
 
+_LOOPBACK = ("127.0.0.1", "localhost", "::1")
+
+
+def _check_exposure(host: str) -> None:
+    """Fail-closed network exposure: a gateway that can mint permits must not
+    listen on a public interface without a real bearer token."""
+    if host in _LOOPBACK or os.environ.get("PROF_ALLOW_INSECURE", "0") == "1":
+        return
+    tok = _api_token()
+    if not tok or tok.upper().startswith("CHANGE_ME") or len(tok) < 16:
+        import sys
+        print(f"[prof] refusing to listen on {host}: set PROF_API_TOKEN to a random "
+              "value of 16+ chars (e.g. `openssl rand -hex 24`), or bind HOST=127.0.0.1. "
+              "(PROF_ALLOW_INSECURE=1 overrides — not for production.)", file=sys.stderr)
+        raise SystemExit(2)
+
+
 def serve() -> None:
     import uvicorn
-    uvicorn.run(app,
-                host=os.environ.get("HOST", "127.0.0.1"),
-                port=int(os.environ.get("PORT", "8091")))
+    host = os.environ.get("HOST", "127.0.0.1")
+    _check_exposure(host)
+    import sys
+    print("[prof] PolyForm Noncommercial 1.0.0 — commercial use requires a paid license "
+          "(COMMERCIAL-LICENSE.md)", file=sys.stderr)
+    uvicorn.run(app, host=host, port=int(os.environ.get("PORT", "8091")))
 
 
 try:

@@ -23,6 +23,22 @@ _PRUNE_INTERVAL_S = 60
 _PRUNE_SIZE_TRIGGER = 5000
 
 
+def _jsonl(f) -> list:
+    """Parse a JSONL journal. A malformed *final* line is a torn append from a
+    crash (never acknowledged, so safe to drop); malformed interior lines mean
+    corruption and raise (fail-closed: forgetting a spent nonce would allow replay)."""
+    lines = [ln for ln in f.read().splitlines() if ln.strip()]
+    out = []
+    for i, ln in enumerate(lines):
+        try:
+            out.append(json.loads(ln))
+        except json.JSONDecodeError:
+            if i == len(lines) - 1:
+                break
+            raise
+    return out
+
+
 class NonceStore:
     def __init__(self, path: Optional[str] = None):
         # RLock: check_and_reserve() prunes under the same guard.
@@ -60,12 +76,12 @@ class NonceStore:
                             return
                     else:
                         f.seek(0)
-                        raw = [json.loads(line) for line in f if line.strip()]
+                        raw = _jsonl(f)
                 else:
-                    raw = [json.loads(line) for line in f if line.strip()]
-        except OSError:
-            self._seen = {}
-            return
+                    f.seek(0)
+                    raw = _jsonl(f)
+        except json.JSONDecodeError:
+            raise  # interior corruption: refuse to start (forgetting nonces = replay)
         for rec in raw:
             try:
                 self._seen[str(rec["nonce"])] = int(rec["expiry"])
@@ -116,7 +132,8 @@ class NonceStore:
         """Drop nonces whose permits are dead. Returns evicted count."""
         now = int(time.time()) if now is None else int(now)
         with self._lock:
-            dead = [n for n, e in self._seen.items() if e <= now]
+            # a permit is still valid at now == expiry (is_expired uses `>`), so keep it
+            dead = [n for n, e in self._seen.items() if e < now]
             for n in dead:
                 del self._seen[n]
             self._last_prune = now

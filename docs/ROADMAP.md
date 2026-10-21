@@ -22,6 +22,6 @@
 
 ## Open-core model
 
-- **Community (this repo, MIT):** SDK, gateway, MCP adapter, ledger, examples.
+- **Community (this repo, PolyForm Noncommercial; commercial use is licensed separately):** SDK, gateway, MCP adapter, ledger, examples.
 - **Team Cloud (roadmap):** central policy, approval workflows, log search.
 - **Enterprise (roadmap):** on-prem, IAM, KMS/HSM, HA, SLA.

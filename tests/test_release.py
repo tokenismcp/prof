@@ -51,3 +51,11 @@ def test_console_assets_versioned():
     html = (ROOT / "prof" / "console" / "index.html").read_text()
     for asset in ("style.css", "i18n.js", "app.js"):
         assert f'{asset}?v={__version__}' in html, asset
+
+
+def test_license_is_noncommercial_with_commercial_option():
+    lic = (ROOT / "LICENSE").read_text()
+    assert "PolyForm Noncommercial License 1.0.0" in lic and "Required Notice:" in lic
+    assert (ROOT / "COMMERCIAL-LICENSE.md").exists()
+    for f in ("pyproject.toml", "setup.cfg"):
+        assert "MIT" not in (ROOT / f).read_text(), f

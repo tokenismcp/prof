@@ -15,7 +15,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PublicKey,
 )
 
-from prof.permit import b64_privkey, b64_pubkey, load_privkey, load_pubkey
+from prof.permit import b64_privkey, b64_pubkey, load_privkey
 
 
 @dataclass
@@ -43,7 +43,6 @@ class Approver:
         return cls(subject, load_privkey(s))
 
     def sign_permit(self, permit) -> None:
-        from prof.permit import Permit as _P  # local import for typing only
         permit.sign(self._sk)
 
 

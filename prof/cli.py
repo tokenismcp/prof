@@ -8,17 +8,19 @@ import time
 
 import click
 
-from prof.demo_tools import build_demo_gateway, crm_lookup, file_write, payment_transfer
+from prof.demo_tools import build_demo_gateway, crm_lookup, payment_transfer
 from prof.gateway import ExecuteRequest
-from prof.identity import Approver
 from prof.ledger import Ledger
 from prof.permit import Permit, hash_args
-from prof.store import NonceStore
 
 
 @click.group()
 def main():
-    """PROF — Think Freely. Act With Proof."""
+    """PROF — Think Freely. Act With Proof.
+
+    Source-available (PolyForm Noncommercial 1.0.0). Commercial use requires a
+    paid license: see COMMERCIAL-LICENSE.md.
+    """
 
 
 @main.command()
@@ -169,7 +171,7 @@ def llm_setup():
         raise click.ClickException("bad choice")
     cfg = LLMConfig(provider=provider)
     if cfg.needs_key and not cfg.api_key:
-        click.echo(f"set your key first: export PROF_LLM_API_KEY=…  (never stored by PROF)")
+        click.echo("set your key first: export PROF_LLM_API_KEY=…  (never stored by PROF)")
     models = list_models(cfg)
     if models:
         click.echo("available models (⚠ = no tool-calling; PROF needs tools):")
