@@ -2,7 +2,7 @@
 ## Cryptographic execution control for AI agents
 
 **4Chains Inc. · Technical Whitepaper v1.0 · October 2026**
-Companion to the open-source implementation: `https://github.com/4chains-inc/prof`
+Companion to the open-source implementation: `https://github.com/tokenismcp/prof`
 
 > This paper describes exactly what the accompanying code does. Every
 > security claim maps to an enforced check (§4) with a test (§6); every

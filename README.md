@@ -6,10 +6,10 @@
 <p align="center"><b>Think Freely. Act With Proof.</b><br/>Cryptographic execution control for AI agents. Model-agnostic. MCP-ready.</p>
 
 <p align="center">
-  <a href="https://github.com/4chains-inc/prof"><img alt="stars" src="https://img.shields.io/github/stars/4chains-inc/prof?style=social" /></a>
+  <a href="https://github.com/tokenismcp/prof"><img alt="stars" src="https://img.shields.io/github/stars/tokenismcp/prof?style=social" /></a>
   <img alt="python" src="https://img.shields.io/badge/python-3.9%2B-blue" />
   <img alt="license" src="https://img.shields.io/badge/license-PolyForm%20NC%20%2B%20Commercial-blue" />
-  <a href="https://github.com/4chains-inc/prof/actions/workflows/ci.yml"><img alt="ci" src="https://github.com/4chains-inc/prof/actions/workflows/ci.yml/badge.svg" /></a>
+  <a href="https://github.com/tokenismcp/prof/actions/workflows/ci.yml"><img alt="ci" src="https://github.com/tokenismcp/prof/actions/workflows/ci.yml/badge.svg" /></a>
   <img alt="tests" src="https://img.shields.io/badge/tests-121-brightgreen" />
   <img alt="mcp" src="https://img.shields.io/badge/MCP-ready-8A2BE2" />
 </p>
@@ -43,7 +43,7 @@ For hardware-rooted, threshold-governed deployments, PROF composes with HCCAI â€
 ## 5-minute quickstart
 
 ```sh
-git clone https://github.com/4chains-inc/prof && cd prof
+git clone https://github.com/tokenismcp/prof && cd prof
 sh integrations/install.sh   # installs + verifies + prints MCP JSON (works on old pip too)
 prof demo
 ```

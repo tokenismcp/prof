@@ -1,14 +1,22 @@
 name: ci
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
+      - run: python -m ruff check prof --select F,E9
       - run: python -m pytest -q
       - run: python -m prof demo
       - run: python examples/01_tool_call.py
