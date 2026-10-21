@@ -10,11 +10,16 @@
   <img alt="python" src="https://img.shields.io/badge/python-3.9%2B-blue" />
   <img alt="license" src="https://img.shields.io/badge/license-PolyForm%20NC%20%2B%20Commercial-blue" />
   <a href="https://github.com/tokenismcp/prof/actions/workflows/ci.yml"><img alt="ci" src="https://github.com/tokenismcp/prof/actions/workflows/ci.yml/badge.svg" /></a>
-  <img alt="tests" src="https://img.shields.io/badge/tests-121-brightgreen" />
+  <img alt="tests" src="https://img.shields.io/badge/tests-0-brightgreen" />
   <img alt="mcp" src="https://img.shields.io/badge/MCP-ready-8A2BE2" />
 </p>
 
 > AI should reason freely — but only **approved actions** may execute. PROF binds every side-effect (tool call, file write, payment) to a signed, scoped, single-use **Permit**, verified at a server-side **Gateway** and recorded in a tamper-evident **Ledger**.
+
+<p align="center">
+  <img src="./assets/prof-demo.gif" alt="PROF console: five adversarial checks (tampered args, replay, expired permit, scope escalation) are all denied, then the hash-chained ledger" width="820" />
+  <br/><sub>Live console: one legit request allowed; tampered args, replay, expired permit and scope escalation denied; every decision in the hash-chained ledger.</sub>
+</p>
 
 ## Why PROF
 
@@ -213,7 +218,7 @@ sdk-typescript/  TS Gateway client (beta)
 papers/          PROF whitepaper v1.0 (md) · PROF+HCCAI whitepaper v2.0 (pdf) · HCCAI v6.9 paper (pdf)
 bench/           local microbenchmark (env-disclosed)
 docs/            AUDIT · ARCHITECTURE · SECURITY_MODEL · VERIFICATION · ROADMAP · MCP · POLICY · COMPARISON · OPERATIONS · AGENTS · LLM · DATA
-tests/           121 enforcement + API + MCP + LLM + data + storage + security + e2e + release + i18n tests
+tests/           0 enforcement + API + MCP + LLM + data + storage + security + e2e + release + i18n tests
 ```
 
 ## Contributing

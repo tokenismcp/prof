@@ -316,7 +316,7 @@ def _clamp_ttl(ttl_s: int) -> int:
         cap = int(os.environ.get("PROF_MAX_TTL_S", "3600"))
     except ValueError:
         cap = 3600
-    return max(1, min(int(ttl_s), cap))
+    return min(int(ttl_s), cap)  # non-positive stays non-positive: an already-expired permit is harmless
 
 
 @app.post("/v1/approve")

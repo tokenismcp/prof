@@ -204,3 +204,20 @@ def test_gateway_roundtrip_unchanged():
     a.sign_permit(p)
     assert gw.authorize(ExecuteRequest("tool.call", "tool:crm.lookup", args, p)).allow
     assert not gw.authorize(ExecuteRequest("tool.call", "tool:crm.lookup", args, p)).allow
+
+
+# ---- A12: regression found while recording the demo (console "Expired permit" check) ----
+def test_negative_ttl_yields_expired_permit_that_is_denied():
+    c = _client()
+    args = {"customer": "acme-42"}
+    p = c.post("/v1/approve", json={"agent": "a", "action": "tool.call", "resource": "tool:crm.lookup",
+                                    "args": args, "ttl_s": -5}).json()
+    r = c.post("/v1/execute", json={"action": "tool.call", "resource": "tool:crm.lookup",
+                                    "args": args, "permit": p}).json()
+    assert r["ok"] is False and "expired" in r["decision"]
+
+
+def test_console_templates_use_backticks_for_interpolation():
+    import pathlib
+    js = (pathlib.Path(__file__).resolve().parent.parent / "prof" / "console" / "app.js").read_text()
+    assert "'<li class=\"mut\">${" not in js

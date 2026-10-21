@@ -293,7 +293,7 @@ async function loadPending() {
       `<span style="flex:1"><b>${esc(q.action)}</b> · ${esc(q.resource)}<br>` +
       `<span class="mut">${esc(q.agent)} · ${esc(JSON.stringify(q.args)).slice(0, 90)}</span></span>` +
       `<button data-ap="${q.id}">${t("btn.approve.q")}</button><button data-dn="${q.id}">${t("btn.deny.q")}</button></li>`
-    ).join("") : '<li class="mut">${t("pend.empty")}</li>';
+    ).join("") : `<li class="mut">${t("pend.empty")}</li>`;
     document.querySelectorAll("#pend-list [data-ap]").forEach((b) => (b.onclick = () => decideRequest(b.dataset.ap, true)));
     document.querySelectorAll("#pend-list [data-dn]").forEach((b) => (b.onclick = () => decideRequest(b.dataset.dn, false)));
   } catch { /* offline */ }

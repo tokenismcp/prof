@@ -3,7 +3,8 @@
 ## v1.0.0 — release audit (before first public release)
 - **License:** MIT -> PolyForm Noncommercial 1.0.0 + paid commercial license (`COMMERCIAL-LICENSE.md`).
 - **Security (see `docs/AUDIT.md`):** agents can no longer self-issue high-tier permits via `/v1/approve` or MCP `prof.approve` (`PROF_REQUIRE_HUMAN` now defaults on); HTTP `/mcp` shares the server's key, ledger and nonce store; payment cap rejects NaN/negative/missing amounts; `..` resources denied; nonce kept through the permit's final valid second; torn-append recovery for ledger/nonce journals, interior corruption refuses to start; symlink-safe file sandbox; LLM API key never sent to caller-chosen endpoints; `/v1/ledger` needs the token; `llm.env` injection closed; gateway refuses a public bind without a strong `PROF_API_TOKEN`; startup ledger verification; permit TTL cap (`PROF_MAX_TTL_S`).
-- 22 new regression tests (`tests/test_audit.py`).
+- Console: fixed `${t("pend.empty")}` rendering literally in "Pending human approvals" (found while recording the demo); negative `ttl_s` still yields an expired permit (console "Expired permit" check).
+- 24 new regression tests (`tests/test_audit.py`).
 
 ## v1.0.0 (2026-10-16)
 - First stable release. Everything below, hardened and fully tested.
