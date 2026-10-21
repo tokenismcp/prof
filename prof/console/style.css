@@ -17,7 +17,7 @@ a{color:var(--cyan)}
 /* header */
 .header{position:sticky;top:0;z-index:30;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
 .hwrap{max-width:1180px;margin:0 auto;padding:12px 26px;display:flex;align-items:center;gap:26px}
-.brand img{height:34px;display:block}
+.brand img{height:38px;display:block}
 .tabs{display:flex;gap:2px;flex:1;overflow-x:auto}
 .tabs button{background:transparent;border:0;color:var(--mut);font:inherit;font-weight:600;font-size:13.5px;padding:8px 14px;border-radius:8px;cursor:pointer;white-space:nowrap}
 .tabs button:hover{color:var(--txt);background:#eef1f6}
